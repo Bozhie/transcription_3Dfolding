@@ -1,5 +1,5 @@
-from project_name.base import NAME
+from transcription_3dfolding.base import NAME
 
 
 def test_base():
-    assert NAME == "project_name"
+    assert NAME == "transcription_3dfolding"
