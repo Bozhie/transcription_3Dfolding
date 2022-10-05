@@ -1,13 +1,9 @@
 import pandas as pd
 import numpy as np
 import bbi
-from gffutils.helpers import asinterval
-from gtfparse import read_gtf
 import bioframe as bf
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
-
-
 
 def generate_signal_matrix(interval_df,
                            chip_seq_file, 
@@ -17,35 +13,39 @@ def generate_signal_matrix(interval_df,
                            nbins=40):
     """
     Uses pybbi to measure signal over a set of input intervals. 
-    Returns a matrix [n_intervals x nbins] of the average of ChIP signal over each
-    bin in the matrix.
+    Returns a matrix [n_intervals x nbins] of the average of ChIP signal over 
+    each bin in the matrix.
     
     Parameters:
     -----------
-    interval_df: pandas dataframe that has the list of intervals (usually, set of genes)
+    interval_df: pandas dataframe that has the list of intervals (usually, 
+                set of genes)
     chip_seq_file: filepath to ChIP-seq file of type bigWig or bigBed
     columns: the columns in interval_df that define the interval
     window_size: the distance of the 
-    window_type: 'extend': window_size subtracted from 'start' and added to 'end'
-                 'centered': find middle of 'start' and 'end' and extend window_size
+    window_type: 'extend': window_size defines padding length added to ends
+                 'centered': window_size extends out from each side of middle
     nbins: number of bins the window is divided into.
     
     Returns:
     --------
     matrix: np.array of shape [n_intervals x nbins]
-        A numpy array with the rows corresponding to intervals in interval_df and values
-        for the bins in the columns.
+            rows correspond to intervals in interval_df and ChIP signal measured
+            across column bins.
     
     """
     
     intervals = bf.make_viewframe(interval_df[columns])
-    intervals = bf.sanitize_bedframe(intervals.rename(columns = {columns[0] : 'chrom', 
+    intervals = intervals.rename(columns = {columns[0] : 'chrom',
                                                        columns[1] : 'start',
-                                                       columns[2] : 'end' }))
+                                                       columns[2] : 'end' })
+    intervals = bf.sanitize_bedframe(intervals)
     
     if window_type == 'extend':
-        num_interval_sizes = pd.Series(intervals['start'] - intervals['end']).nunique()
-        assert num_interval_sizes == 1, "The size of intervals should be equal to perform stackup. Try window_type: 'centered'"
+        shapes = pd.Series(intervals['start'] - intervals['end']).nunique()
+        msg = "The size of intervals should be equal to perform stackup. \
+                Try window_type: 'centered'"
+        assert shapes == 1, msg
         
         intervals = bf.expand(intervals, pad=window_size)
         
@@ -53,7 +53,9 @@ def generate_signal_matrix(interval_df,
         intervals = bf.expand(bf.expand(expanded, scale=0), pad = 1000)
     
     with bbi.open(chip_seq_file) as f:
-        matrix = f.stackup(intervals['chrom'], intervals['start'], intervals['end'], bins=nbins)
+        matrix = f.stackup(intervals['chrom'],
+                           intervals['start'],
+                           intervals['end'], bins=nbins)
         
     return matrix
     
@@ -68,15 +70,17 @@ def plot_avg_signal(DE_results_df,
                     window_size=1000, 
                     nbins=40):
     """
-    Plots average signal of each category defined in DE_results_df['agg_key'], sorted by differential expression
+    Plots average signal of each category defined in DE_results_df['agg_key'], 
+    sorted by differential expression
     
     Parameters:
     -----------
-    DE_results_df: pandas dataframe that has the list of intervals (usually, set of genes) 
-                   and the categories labeled in a column 'agg_key'.
+    DE_results_df: pandas dataframe that has the list of intervals (usually, 
+                   set of genes) and the categories labeled in 'agg_key'
     plot_title: title or this plot
     ax: the axis for plotting this heatmap.
-    DE_value_col: column in DE_results_df that has measure of differential expression, for sorting in descending order
+    DE_value_col: column in DE_results_df that has measure of differential 
+                  expression, for sorting in descending order
     sort_by_DE: True/False sort the intervals by their change in expression
     agg_key: column in DE_results_df containing category labels
     agg_categories: the category label values in DE_results_df[agg_key]
@@ -98,17 +102,14 @@ def plot_avg_signal(DE_results_df,
         
         ax.plot(np.nanmean(cat_matrix, axis=0), color = color, label=category)
         
+    ticks = np.arange(0, (windowSize*2)+1, (windowSize/2))-(windowSize*2)//2
     ax.set(xticks=np.arange(0, nbins+1, 10),
-    xticklabels=(np.arange(0, (windowSize*2)+1, (windowSize/2))-(windowSize*2)//2),
+    xticklabels=ticks,
     xlabel='Distance from boundary (bp)',
     ylabel='ChIP-Seq mean fold change over input')
     ax.set_title(title)
     
     
-
-
-
-# Plot heatmap of ChIP signal in the matrix window for each interval (e.g. DE gene), grouped by category and optionally sorted by magnitude of differential expression
 def plot_binned_signal_heatmap(DE_results_df, 
                                stackup_matrix, 
                                plot_title, 
@@ -120,17 +121,19 @@ def plot_binned_signal_heatmap(DE_results_df,
                                window_size=1000, 
                                nbins=40):
     """
-    Plot heatmap of ChIP signal in the matrix window for each interval (e.g. DE gene), grouped by category.
-    Option to sort by magnitude of differential expression within the categories.
+    Plot heatmap of ChIP signal in the matrix window for each interval 
+    (e.g. DE gene), grouped by category.
     
     Parameters:
     -----------
-    DE_results_df: pandas dataframe that has the list of intervals (usually, set of genes) 
-                   and the categories labeled in a column 'agg_key'.
+    DE_results_df: pandas dataframe that has the list of intervals (usually, 
+                   set of genes) and the categories labeled in 'agg_key'
     plot_title: title or this plot
     ax: the axis for plotting this heatmap.
-    DE_value_col: column in DE_results_df that has measure of differential expression, for sorting in descending order
-    sort_by_DE: True/False sort the intervals by their change in expression
+    DE_value_col: column in DE_results_df with measure of differential 
+                  expression, for sorting.
+    sort_by_DE: True/False sort the intervals by their change in expression in
+                descending order.
     agg_key: column in DE_results_df containing category labels
     agg_categories: the category label values in DE_results_df[agg_key]
     window_size: the size of the interval windows (end - start)
@@ -138,7 +141,8 @@ def plot_binned_signal_heatmap(DE_results_df,
     
     Returns:
     --------
-    Greyscale heatmap visualization of ChIP signal in stackup_matrix, grouped and sorted.
+    Greyscale heatmap visualization of ChIP signal in stackup_matrix, 
+    grouped and sorted.
     
     """
     
@@ -199,13 +203,16 @@ def plot_category_heatmap(DE_results_df,
     Generate a heatmap to label categories of intervals (usually, DE genes).
     Parameters:
     -----------
-    DE_results_df: pandas dataframe that has the list of intervals (usually, set of genes) 
-                   and the levels of expression or categories labeled in a column.
+    DE_results_df: pandas dataframe that has the list of intervals (usually, 
+                   set of genes) and the levels of expression or categories 
+                   labeled in a column.
     title: title or this plot
     ax: the axis for plotting this heatmap.
-    DE_value_col: column in DE_results_df that has measure of differential expression, for sorting
-    sort_by_DE: True/False determines whether to sort the intervals by their change in expression
-    agg_key: column in DE_results_df where category labels are
+    DE_value_col: column in DE_results_df with measure of differential 
+                  expression, for sorting.
+    sort_by_DE: True/False sort the intervals by their change in expression in
+                descending order.
+    agg_key: column in DE_results_df defining category labels
     agg_categories: the category label values in DE_results_df[agg_key]
     color_categories: the colors assigned to each category for the heatmap
     
