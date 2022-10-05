@@ -35,16 +35,16 @@ def generate_signal_matrix(interval_df,
     
     """
     
-    intervals = bf.make_viewframe(interval_df[columns])
-    intervals = intervals.rename(columns = {columns[0] : 'chrom',
-                                                       columns[1] : 'start',
-                                                       columns[2] : 'end' })
+    intervals = bf.from_any(interval_df[columns])
+    intervals = intervals.rename(columns = {columns[0]: 'chrom',
+                                                       columns[1]: 'start',
+                                                       columns[2]: 'end'})
     intervals = bf.sanitize_bedframe(intervals)
     
     if window_type == 'extend':
         shapes = pd.Series(intervals['start'] - intervals['end']).nunique()
-        msg = "The size of intervals should be equal to perform stackup. \
-                Try window_type: 'centered'"
+        msg = """The size of intervals should be equal to perform stackup.
+                 Try window_type: 'centered'"""
         assert shapes == 1, msg
         
         intervals = bf.expand(intervals, pad=window_size)
@@ -102,12 +102,12 @@ def plot_avg_signal(DE_results_df,
         
         ax.plot(np.nanmean(cat_matrix, axis=0), color = color, label=category)
         
-    ticks = np.arange(0, (windowSize*2)+1, (windowSize/2))-(windowSize*2)//2
+    ticks = np.arange(0, (window_size*2)+1, (window_size/2))-(window_size*2)//2
     ax.set(xticks=np.arange(0, nbins+1, 10),
     xticklabels=ticks,
     xlabel='Distance from boundary (bp)',
     ylabel='ChIP-Seq mean fold change over input')
-    ax.set_title(title)
+    ax.set_title(plot_title)
     
     
 def plot_binned_signal_heatmap(DE_results_df, 
