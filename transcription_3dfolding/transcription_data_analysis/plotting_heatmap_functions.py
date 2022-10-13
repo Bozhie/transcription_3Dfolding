@@ -269,3 +269,39 @@ def plot_category_heatmap(DE_results_df,
         cbar = plt.colorbar(occ, cax=cax, extend='max', ticklocation='left')
     cbar.set_ticks(np.percentile(change_vals, [0, 5, 25, 50, 95, 100]))
     cbar.set_label(DE_value_col, rotation=90)
+    
+    
+    ####################################
+    
+    # HELPER FUNCTIONS
+    
+    ####################################
+    
+def get_tss_gene_intervals(tss_df):
+    '''
+    Input: a .gtf file containing the chr, start, end
+    corresponding to the TSS for the transcripts ready from a 
+    genomic .gtf format annotation file.
+    Output: a dataframe in bioframe format with a single TSS 
+    per gene, with non-autosomes removed.
+    '''
+    
+    # cleaning out less-well defined chromosome numbers
+    tss_df = tss_df.loc[False==( tss_df['seqname'].str.contains('NT_'))]
+    tss_df = tss_df.loc[False==( tss_df['seqname'].str.contains('MT'))]
+
+    # paste 'chr' to all chromosome names
+    tss_df["seqname"] = tss_df["seqname"]
+
+    # rename column to chrom to match bedframe/bioframe format
+    tss_df = tss_df.rename(columns= {"seqname" : "chrom"})
+
+    # Removing pseudo chromosomes
+    tss_df = tss_df.loc[False==( tss_df['chrom'].str.contains('chrGL'))]
+    tss_df = tss_df.loc[False==( tss_df['chrom'].str.contains('chrJH'))]
+    tss_df = tss_df.loc[False==( tss_df['chrom'].str.contains('chrY'))]
+    tss_df = tss_df.loc[False==( tss_df['chrom'].str.contains('chrM'))]
+    tss_df =tss_df.loc[True==tss_df['chrom'].str.contains('chr')]
+    
+    # drop duplicate TSSes
+    return tss_df[['gene_id','chrom', 'start', 'end']].drop_duplicates(['gene_id'])
