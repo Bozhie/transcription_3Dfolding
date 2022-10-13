@@ -107,6 +107,7 @@ def plot_avg_signal(DE_results_df,
     xticklabels=ticks,
     xlabel='Distance from boundary (bp)',
     ylabel='ChIP-Seq mean fold change over input')
+    plt.legend()
     ax.set_title(plot_title)
     
     
@@ -114,6 +115,7 @@ def plot_binned_signal_heatmap(DE_results_df,
                                stackup_matrix, 
                                plot_title, 
                                ax=None,
+                               cax=None,
                                DE_value_col='log2FoldChange', 
                                sort_by_DE=True, 
                                agg_key='DE_status', 
@@ -130,6 +132,7 @@ def plot_binned_signal_heatmap(DE_results_df,
                    set of genes) and the categories labeled in 'agg_key'
     plot_title: title or this plot
     ax: the axis for plotting this heatmap.
+    cax: the axis for plotting the colorbar.
     DE_value_col: column in DE_results_df with measure of differential 
                   expression, for sorting.
     sort_by_DE: True/False sort the intervals by their change in expression in
@@ -179,7 +182,10 @@ def plot_binned_signal_heatmap(DE_results_df,
     norm = colors.TwoSlopeNorm(vmin=bottom, vcenter=center, vmax=top)
     
     hm = ax.imshow(np.vstack(ordered_heatmap), cmap='gray_r', norm=norm, aspect='auto')
-    cb = plt.colorbar(hm, ax=ax, extend='max', orientation='vertical')
+    if cax == None:
+        cb = plt.colorbar(hm, ax=ax, extend='max', orientation='vertical')
+    else:
+        cb = plt.colorbar(hm, cax=cax, extend='max', orientation='vertical')
     cb.set_ticks(np.percentile(stackup_matrix, [0, 95, 98, 99, 100]))
     cb.set_label('ChIP signal', rotation=270)
 
@@ -190,13 +196,14 @@ def plot_binned_signal_heatmap(DE_results_df,
         
         
 def plot_category_heatmap(DE_results_df, 
-                           title, 
-                           ax=None,
-                           DE_value_col='log2FoldChange', 
-                           sort_by_DE=True, 
-                           agg_key='DE_status', 
-                           agg_categories=['up', 'down'],
-                           color_categories=['r', 'b']
+                          plot_title, 
+                          ax=None,
+                          cax=None,
+                          DE_value_col='log2FoldChange', 
+                          sort_by_DE=True, 
+                          agg_key='DE_status', 
+                          agg_categories=['up', 'down'],
+                          color_categories=['r', 'b']
                          ):
     
     """
@@ -206,8 +213,9 @@ def plot_category_heatmap(DE_results_df,
     DE_results_df: pandas dataframe that has the list of intervals (usually, 
                    set of genes) and the levels of expression or categories 
                    labeled in a column.
-    title: title or this plot
+    plot_title: title or this plot
     ax: the axis for plotting this heatmap.
+    cax: the axis for plotting the colorbar.
     DE_value_col: column in DE_results_df with measure of differential 
                   expression, for sorting.
     sort_by_DE: True/False sort the intervals by their change in expression in
@@ -252,8 +260,12 @@ def plot_category_heatmap(DE_results_df,
     hotcoldmap = plt.cm.get_cmap('RdBu').reversed()
     occ = ax.imshow(change_vals, cmap=hotcoldmap, norm=divnorm, aspect='auto')
     ax.xaxis.set_ticklabels([])
+    ax.set_title(plot_title)
     
     # adding colorbar
-    cbar = plt.colorbar(occ, ax=ax, extend='max', location='left')
+    if cax == None:
+        cbar = plt.colorbar(occ, cax=ax, extend='max', location='left', ticklocation='left')
+    else:
+        cbar = plt.colorbar(occ, cax=cax, extend='max', ticklocation='left')
     cbar.set_ticks(np.percentile(change_vals, [0, 5, 25, 50, 95, 100]))
     cbar.set_label(DE_value_col, rotation=90)
