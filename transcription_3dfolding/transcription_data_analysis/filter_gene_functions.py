@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 from functools import partial
 import multiprocessing as mp
+import warnings
 
 
 def get_tss_gene_intervals(tss_df):
@@ -69,12 +70,13 @@ def label_DE_status(df,
 def label_quantiles(df,
                     quantile_label_col='DE_status',
                     quantile_value_col= 'avg_vst_counts',
-                    num_quantiles =4,
+                    quantile_array =[0.0, 0.5, 0.75, 0.95, 1.0],
                     label_subset='nonsig'
                     ):
     """
     Appends a quantile label to values in a column matching "label_subset".
     Quantiles are derived from the full distribution of values in quantile_value_col
+    Quantile_array contains the borders of values for binning.
     Returns
     --------
     df_out : pd.DataFrame
@@ -83,12 +85,16 @@ def label_quantiles(df,
     ------
     Quantile label col must be str or object.
     """
+    if (quantile_array[1] < 0.3):
+        warnings.warn(("The lowest quantile cut-off might be too low, "
+                       "leading to non-unique bin edges if there are "
+                       "excessive zeros (or lowest value) within bottom range."))
+    
     df_out = df.copy()
-    q_strs = pd.Series(np.linspace(0,100, num_quantiles).astype(int).astype(str))
-    q_strs = q_strs[:-1].values+'-'+q_strs[1:].values
+    q_strs = [str(num) for num in quantile_array]
+    q_strs = [s+'-'+e for s, e in zip(q_strs[:-1], q_strs[1:])]
     quantile_labels = pd.qcut(df[quantile_value_col],
-                              num_quantiles,
-                              duplicates='drop',
+                              quantile_array,
                               labels=q_strs).astype(str)
     if label_subset:
         inds =df[quantile_label_col]==label_subset
