@@ -93,12 +93,13 @@ def generate_signal_matrix_parallel(df, chip_seq_condition_dict, max_procs=8,
     
 def plot_avg_signal(DE_results_df, 
                     stackup_matrix, 
-                    plot_title, 
+                    plot_title=None, 
                     ax=None, 
                     DE_value_col='log2Fold_Change',
                     agg_key='DE_status', 
                     category_colors={'up' : 'r', 'down' : 'b', 'nonsig' : 'k'}, 
                     window_size=1000, 
+                    add_legend=True,
                     nbins=40):
     """
     Plots average signal of each category defined in DE_results_df['agg_key'], 
@@ -133,13 +134,15 @@ def plot_avg_signal(DE_results_df,
         
         ax.plot(np.nanmean(cat_matrix, axis=0), color = color, label=category)
         
-    ticks = np.arange(0, (window_size*2)+1, (window_size/2))-(window_size*2)//2
+    ticks = (np.arange(0, (window_size*2)+1, (window_size/2))-(window_size*2)//2).astype(int)
     ax.set(xticks=np.arange(0, nbins+1, 10),
     xticklabels=ticks,
     xlabel='Distance from boundary (bp)',
     ylabel='ChIP-Seq mean fold change over input')
-    plt.legend()
-    ax.set_title(plot_title)
+    if add_legend:
+        ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    if plot_title:
+        ax.set_title(plot_title)
     
     
 def plot_binned_signal_heatmap(DE_results_df, 
@@ -152,6 +155,8 @@ def plot_binned_signal_heatmap(DE_results_df,
                                agg_key='DE_status', 
                                agg_categories=['up', 'down'],
                                window_size=1000, 
+                               color_tick_percentiles= [0, 50, 95, 99, 100],
+                               colorbar_label='ChIP signal',
                                nbins=40):
     """
     Plot heatmap of ChIP signal in the matrix window for each interval 
@@ -217,11 +222,12 @@ def plot_binned_signal_heatmap(DE_results_df,
         cb = plt.colorbar(hm, ax=ax, extend='max', orientation='vertical')
     else:
         cb = plt.colorbar(hm, cax=cax, extend='max', orientation='vertical', pad=5.0)
-    cb.set_ticks(np.percentile(stackup_matrix, [0, 95, 98, 99, 100]))
-    cb.set_label('ChIP signal', rotation=270)
+    cb.set_ticks(np.percentile(stackup_matrix, color_tick_percentiles))
+    if colorbar_label:
+        cb.set_label(colorbar_label, rotation=270, labelpad=15)
 
     ax.set(xticks=np.arange(0, nbins+1, 10),
-    xticklabels=(np.arange(0, (window_size*2)+1, (window_size/2))-(window_size*2)//2),
+    xticklabels=(np.arange(0, (window_size*2)+1, (window_size/2))-(window_size*2)//2).astype(int),
     xlabel='Distance from boundary (bp)')
     ax.set_title(plot_title)
         
@@ -234,7 +240,8 @@ def plot_category_heatmap(DE_results_df,
                           sort_by_DE=True, 
                           agg_key='DE_status', 
                           agg_categories=['up', 'down'],
-                          color_categories=['r', 'b']
+                          color_categories=['r', 'b'], 
+                          color_tick_percentiles =[0, 5, 25, 50, 95, 100],
                          ):
     
     """
@@ -298,5 +305,5 @@ def plot_category_heatmap(DE_results_df,
         cbar = plt.colorbar(occ, cax=ax, extend='max', location='left', ticklocation='left')
     else:
         cbar = plt.colorbar(occ, cax=cax, extend='max', ticklocation='left')
-    cbar.set_ticks(np.percentile(change_vals, [0, 5, 25, 50, 95, 100]))
+    cbar.set_ticks(np.percentile(change_vals, color_tick_percentiles))
     cbar.set_label(DE_value_col, rotation=90)
