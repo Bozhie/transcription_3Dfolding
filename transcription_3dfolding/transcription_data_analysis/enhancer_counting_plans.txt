@@ -1,0 +1,33 @@
+
+
+1. Plotting cumulative distance to closest enhancer 
+
+* while building flexible functions so that can add other, similar analyses:
+ "cumulative distance plots to nearest ChIP peak"
+
+For 1-day dNipBL dataset:
+- add coordinates of TSS to each gene (flt.get_tss_gene_intervals())
+- split by up/down/non-reg genes (flt.label_DE_status())
+- Collect cumulative distances:
+    - (pseudocode)
+    for each set of enhancers (feature_interval):
+        distances  = bioframe.closest(gene_coords, middle_of_enhancer_coords)
+    - with above datastructure, plots:
+    sort distances
+    # line plot
+    plot(cumulative_fraction(genes), sorted_distances)
+    # histogram, too
+    plt.hist(sorted_distances, binned)
+
+
+2. How many dysregulated genes contain a distal enhancer in the same TAD?
+→ bar plots, broken up by up/down/non, either as counts or %
+
+Using the 1-day dNipBL dataset and mappings of closest enhancers:
+- Use bonev boundaries to annotate "TAD-windows"
+- Within each "TAD-window", count:
+    - number of enhancers within the window (bioframe.overlap)
+    - number of up-regulated, down-regulated, non-significant genes
+    - percentage of up/down/non-sig genes
+- plot: bar-graphs with number of enhancers/window on X-axis, category
+of gene distribution on y-axis
