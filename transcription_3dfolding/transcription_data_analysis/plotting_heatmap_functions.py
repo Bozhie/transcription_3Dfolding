@@ -336,3 +336,129 @@ def plot_category_heatmap(
         cbar = plt.colorbar(occ, cax=cax, extend="max", ticklocation="left")
     cbar.set_ticks(np.percentile(change_vals, color_tick_percentiles))
     cbar.set_label(DE_value_col, rotation=90)
+    
+    
+def plot_cumulative_distance(
+    df, 
+    distance_col,
+    agg_key='DE_status',
+    category_colors={"up": 'tab:red', 
+                     "down": 'tab:blue', 
+                     "nonsig": 'tab:gray'},
+    bins=100,
+    val_range=(2,8),
+    plot_title=None,
+    ax=None,
+    add_legend=True
+):
+    """
+    Plots log10 distances, cumulative by portion of genes in each 
+    category defined in df['agg_key'].
+    
+    Parameters:
+    -----------
+    df: pandas dataframe that has distances in 'distance_col'
+        and the categories labeled in 'agg_key'.
+    distance_col: the column in df with the distances for plotting
+    agg_key: column in df containing category labels
+    category_colors: the category label values in df[agg_key] mapped
+        to the colors for plotting.
+    bins: number of bins for histogram.
+    val_range: range of log10 values in 'distance_col' for setting max and
+        min.
+    plot_title: title or this plot
+    ax: the axis for plotting this heatmap.
+
+    Returns:
+    --------
+    plot
+    """
+    
+    if ax == None:
+        ax = plt.subplot()
+    
+    for cat, col in category_colors.items():
+    
+        cat_ix = np.where(df[agg_key] == cat)
+
+        dist = df.iloc[cat_ix][distance_col].replace(0, 1)
+        ax.hist(np.log10(dist),
+                bins=bins,
+                range=val_range,
+                density=True,
+                histtype='step',
+                cumulative=True,
+                lw=1.5,
+                label=cat, 
+                color=col)
+
+    if add_legend:
+        ax.legend(loc='upper left')
+    ax.set(
+        xlabel='log10 distance',
+        ylabel='cumulative portion of genes'
+    )
+    if plot_title != None:
+        ax.set_title(plot_title)
+        
+def plot_distance_histogram(
+    df, 
+    distance_col,
+    agg_key='DE_status',
+    category_colors={"up": 'tab:red', 
+                     "down": 'tab:blue', 
+                     "nonsig": 'tab:gray'},
+    bins=50,
+    val_range=(2,8),
+    plot_title=None,
+    ax=None,
+    add_legend=True
+):
+    """
+    Plots distribution of log10 distances across different bins in 
+    each category defined in df['agg_key'].
+    
+    Parameters:
+    -----------
+    df: pandas dataframe that has distances in 'distance_col'
+        and the categories labeled in 'agg_key'.
+    distance_col: the column in df with the distances for plotting
+    agg_key: column in df containing category labels
+    category_colors: the category label values in df[agg_key] mapped
+        to the colors for plotting.
+    bins: number of bins for histogram.
+    val_range: range of log10 values in 'distance_col' for setting max and
+        min.
+    plot_title: title or this plot
+    ax: the axis for plotting.
+
+    Returns:
+    --------
+    plot
+    """
+    
+    if ax == None:
+        ax = plt.subplot()
+    
+    for cat, col in category_colors.items():
+    
+        cat_ix = np.where(df[agg_key] == cat)
+
+        dist = df.iloc[cat_ix][distance_col].replace(0, 1)
+        ax.hist(np.log10(dist),
+                bins=bins,
+                range=val_range,
+                density=True,
+                histtype='step',
+                lw=1.5,
+                label=cat, 
+                color=col)
+
+    if add_legend:
+        ax.legend(loc='upper left')
+    ax.set(
+        xlabel='log10 distance',
+        ylabel='frequency'
+    )
+    if plot_title != None:
+        ax.set_title(plot_title)

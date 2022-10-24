@@ -112,3 +112,30 @@ def label_quantiles(
             df_out.loc[quantile_label_col] + "_" + quantile_labels
         )
     return df_out
+
+
+def label_closest_enhancer(df, enhancer_file, enhancer_set):
+    """ Appends a column with the distance from each gene 
+    in df to the closest enhancer.
+    
+    Returns
+    --------
+    df_out : pd.DataFrame
+        DataFrame with [enhancer_set]_distance column
+        
+    """
+    
+    
+    df_out = df.copy()
+    enhancers = bf.read_table(enhancer_file).rename(
+        columns={0: 'chrom',  1: 'start', 2: 'end'}
+    )
+    
+    # filter by only numerical enhancers
+    enhancers = enhancers[enhancers.chrom.str.match('^chr\d+$')]
+    enhancers = bf.sanitize_bedframe(enhancers)
+    df_out[enhancer_set+'_distance'] = bf.closest(
+        df, enhancers, suffixes=('','_enh')
+    )['distance']
+    
+    return df_out
