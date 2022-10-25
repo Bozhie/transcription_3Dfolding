@@ -113,6 +113,21 @@ def label_quantiles(
         )
     return df_out
 
+def get_enhancer_bioframe(enhancer_file):
+    """
+    Reads enhancer .bed file with no header and returns
+    a clean bioferame, with only enhancers one numerical chromosomes.
+    """
+    
+    enhancers = bf.read_table(enhancer_file).rename(
+        columns={0: 'chrom',  1: 'start', 2: 'end'}
+    )
+    
+    # filter by only numerical enhancers
+    enhancers = enhancers[enhancers.chrom.str.match('^chr\d+$')]
+    enhancers = bf.sanitize_bedframe(enhancers)
+    
+    return enhancers
 
 def label_closest_enhancer(df, enhancer_file, enhancer_set):
     """ Appends a column with the distance from each gene 
@@ -125,17 +140,58 @@ def label_closest_enhancer(df, enhancer_file, enhancer_set):
         
     """
     
-    
     df_out = df.copy()
-    enhancers = bf.read_table(enhancer_file).rename(
-        columns={0: 'chrom',  1: 'start', 2: 'end'}
-    )
-    
-    # filter by only numerical enhancers
-    enhancers = enhancers[enhancers.chrom.str.match('^chr\d+$')]
-    enhancers = bf.sanitize_bedframe(enhancers)
+    enhancers = get_enhancer_bioframe(enhancer_file)
     df_out[enhancer_set+'_distance'] = bf.closest(
         df, enhancers, suffixes=('','_enh')
     )['distance']
     
     return df_out
+
+
+def tad_windows_from_boundaries(insulation_boundaries, cooler):
+    """
+    Using a set of insulation boundaries, builds a set of genomic intervals 
+        that represent the TADs, or regions between these boundaries. 
+        Each chromosome has the following set of TAD intervals:
+            - first TAD interval begins at start of chromosome and ends at 
+                the beginning of the next boundary.
+            - middle TAD intervals start at end of previous insulation boundary,
+                and end at beginning of the next one.
+            - last TAD interval starts at end of last insulation boundary
+                and ends at the end of the chromosome.
+    
+    Parameters:
+    -----------
+    insulation_boudnaries: df containing insulation boundaries and original cooler file.
+    cooler: 
+    
+    Returns:
+    --------
+    tad_df: A bioframe containing genomic intervals that represent the TADs,
+        or regions between these boundaries. Starts from 
+    
+    """
+
+    tad_df = pd.DataFrame(columns=['chrom', 'start', 'end'])
+
+    for chrom in insulation_boundaries.chrom.unique():
+
+        chrom_boundaries = insulation_boundaries[insulation_boundaries['chrom'] == chrom]
+        size = len(chrom_boundaries)
+        TAD_starts = np.empty([size+1])
+        TAD_starts[0] = 0
+        TAD_starts[1:] = chrom_boundaries['end']
+
+        TAD_ends = np.empty([size+1])
+        TAD_ends[-1] = cooler.chromsizes[chrom]
+        TAD_ends[0:-1] = chrom_boundaries['start']
+
+        tmp = pd.DataFrame({'chrom' : chrom,
+                            'start' : TAD_starts,
+                            'end' : TAD_ends}
+                          )
+        
+        tad_df = tad_df.append(tmp, ignore_index=True)
+    
+    return bf.sanitize_bedframe(tad_df)
