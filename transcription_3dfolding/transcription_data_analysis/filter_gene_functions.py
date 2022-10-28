@@ -149,10 +149,72 @@ def label_closest_enhancer(df, enhancer_file, enhancer_set):
     return df_out
 
 
-def tad_windows_from_boundaries(insulation_boundaries, cooler):
+def windows_from_boundaries(boundaries, chromsizes, take_midpoint=False):
+    """
+    Using a set of boundaries, builds the set of genomic interval 'windows'
+        that represent the regions separated by these boundaries. 
+    
+    Parameters:
+    -----------
+    boundaries: df containing boundaries of some feature, defined by genomic
+        intervals (chrom, start, end).
+    chromsizes: a dictionary with the chromosome sizes for the final window boundaries.
+    take_midpoint: when False, the windows are the regions outside the boundaries. 
+        When true, the windows start and end at the midpoint, inside each boundary.
+    
+    Returns:
+    --------
+    window_df: A bioframe containing genomic intervals that represent the
+        regions between these boundaries.
+    """
+
+    window_df = pd.DataFrame(columns=['chrom', 'start', 'end'])
+
+    for chrom in boundaries.chrom.unique():
+
+        chrom_boundaries = boundaries[boundaries['chrom'] == chrom]
+        if take_midpoint:
+            mid = (chrom_boundaries['end'] + chrom_boundaries['start'])/2
+        size = len(chrom_boundaries)
+        
+        window_starts = np.empty([size+1])
+        window_starts[0] = 0
+        if take_midpoint:
+            window_starts[1:] = mid + 1
+        else:
+            window_starts[1:] = chrom_boundaries['end']
+        
+        window_ends = np.empty([size+1])
+        window_ends[-1] = chromsizes[chrom]
+        if take_midpoint:
+            window_ends[0:-1] = mid
+        else:
+            window_ends[0:-1] = chrom_boundaries['start']
+
+        tmp = pd.DataFrame({'chrom' : chrom,
+                            'start' : window_starts,
+                            'end' : window_ends}
+                          )
+        
+        window_df = window_df.append(tmp, ignore_index=True)
+    
+    return bf.sanitize_bedframe(window_df)
+
+
+def extract_chrom_sizes_from_insulation(insulation_table):
+    """ Returns a dictionary of the chromosome sizes from an insulation table. """
+    
+    chrom_sizes = {}
+    for chrom in insulation_table['chrom'].unique():
+        size = insulation_table[insulation_table['chrom'] == chrom][-1:]['end']
+        chrom_sizes[chrom] = size
+    return chrom_sizes
+
+def tad_windows_from_boundaries(insulation_table, take_midpoint=False):
     """
     Using a set of insulation boundaries, builds a set of genomic intervals 
         that represent the TADs, or regions between these boundaries. 
+        
         Each chromosome has the following set of TAD intervals:
             - first TAD interval begins at start of chromosome and ends at 
                 the beginning of the next boundary.
@@ -163,8 +225,9 @@ def tad_windows_from_boundaries(insulation_boundaries, cooler):
     
     Parameters:
     -----------
-    insulation_boudnaries: df containing insulation boundaries and original cooler file.
-    cooler: 
+    boundaries: df containing boundaries of some feature, with 'start' and 'ends'.
+    chromsizes: a dictionary with the chromosome sizes for the final window boundaries.
+    take_midpoint: when False, the windows are the regions outside the 
     
     Returns:
     --------
@@ -172,26 +235,14 @@ def tad_windows_from_boundaries(insulation_boundaries, cooler):
         or regions between these boundaries. Starts from 
     
     """
-
-    tad_df = pd.DataFrame(columns=['chrom', 'start', 'end'])
-
-    for chrom in insulation_boundaries.chrom.unique():
-
-        chrom_boundaries = insulation_boundaries[insulation_boundaries['chrom'] == chrom]
-        size = len(chrom_boundaries)
-        TAD_starts = np.empty([size+1])
-        TAD_starts[0] = 0
-        TAD_starts[1:] = chrom_boundaries['end']
-
-        TAD_ends = np.empty([size+1])
-        TAD_ends[-1] = cooler.chromsizes[chrom]
-        TAD_ends[0:-1] = chrom_boundaries['start']
-
-        tmp = pd.DataFrame({'chrom' : chrom,
-                            'start' : TAD_starts,
-                            'end' : TAD_ends}
-                          )
-        
-        tad_df = tad_df.append(tmp, ignore_index=True)
     
-    return bf.sanitize_bedframe(tad_df)
+    # Get chrom_sizes
+    chrom_sizes = extract_chrom_sizes_from_insulation(insulation_table)
+    # Take only boundaries called strong from this table
+    insulation_boundaries = insulation_table.query('is_boundary_200000 == True')
+    # Dropping any coordinates with chrX
+    insulation_boundaries = insulation_boundaries[~insulation_boundaries.chrom.isin(['chrX'])]
+    
+    tad_df = windows_from_boundaries(insulation_boundaries, chrom_sizes, take_midpoint=take_midpoint)
+    return tad_df
+
