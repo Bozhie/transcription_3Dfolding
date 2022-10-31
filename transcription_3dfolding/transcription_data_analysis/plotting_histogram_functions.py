@@ -5,6 +5,77 @@ import bioframe as bf
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 
+
+def plot_categorized_histogram(
+    df, 
+    column,
+    agg_key='DE_status',
+    category_colors={"up": 'tab:red', 
+                     "down": 'tab:blue', 
+                     "nonsig": 'tab:gray'},
+    bins=50,
+    val_range=(2,8),
+    cumulative=False,
+    density=False,
+    plot_title=None,
+    ax=None,
+    add_legend=True
+):
+    """
+    Plots distribution of values in column across different bins in 
+    each category defined in df['agg_key'].
+    
+    Parameters:
+    -----------
+    df: pandas dataframe that has 'column' and the categories labeled in 
+        'agg_key'.
+    distance_col: the column in df with the distances for plotting
+    agg_key: column in df containing category labels
+    category_colors: the category label values in df[agg_key] mapped
+        to the colors for plotting.
+    bins: number of bins for histogram.
+    val_range: range of log10 values in 'distance_col' for setting max and
+        min.
+    cumulative: True/False for whether the plot should build up cumulative
+        distribution on x-axis.
+    plot_title: title or this plot
+    ax: the axis for plotting.
+
+    Returns:
+    --------
+    plot
+    """
+    
+    if ax == None:
+        ax = plt.subplot()
+    
+    for cat, col in category_colors.items():
+    
+        cat_ix = np.where(df[agg_key] == cat)
+
+        values = df.iloc[cat_ix][column].values
+        ax.hist(values,
+                bins=bins,
+                range=val_range,
+                density=density,
+                cumulative=cumulative,
+                histtype='step',
+                lw=1.5,
+                label=cat, 
+                color=col)
+
+    if add_legend:
+        ax.legend(loc='upper right')
+    if density:
+        ylab = 'frequency'
+    else:
+        ylab = 'counts'
+    ax.set(
+        xlabel= column,
+        ylabel= ylab
+    )
+    if plot_title != None:
+        ax.set_title(plot_title)
         
 def plot_distance_histogram(
     df, 
