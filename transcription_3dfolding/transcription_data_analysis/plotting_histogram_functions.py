@@ -118,6 +118,8 @@ def plot_distance_histogram(
     plot
     """
     
+    df = df.copy().dropna(subset=[distance_col])
+    
     if ax == None:
         ax = plt.subplot()
     
@@ -138,9 +140,13 @@ def plot_distance_histogram(
 
     if add_legend:
         ax.legend(loc='upper left')
+    if cumulative:
+        ylab = 'cumulative count'
+    else:
+        ylab = 'frequency'
     ax.set(
-        xlabel='log10 distance',
-        ylabel='frequency'
+        xlabel = 'log10 distance',
+        ylabel = ylab
     )
     if plot_title != None:
         ax.set_title(plot_title)

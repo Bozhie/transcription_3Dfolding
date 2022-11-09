@@ -113,6 +113,17 @@ def label_quantiles(
         )
     return df_out
 
+def bioframe_clean_autosomes(frame):
+    """
+    Takes a dataframe or bioframe and returns
+    a santizied bioframe with only the intervals on autosomes.
+    """
+    
+    frame = frame[frame.chrom.str.match('^chr\d+$')]
+    frame = bf.sanitize_bedframe(frame)
+        
+    return frame
+
 def get_enhancer_bioframe(enhancer_file):
     """
     Reads enhancer .bed file with no header and returns
@@ -123,11 +134,42 @@ def get_enhancer_bioframe(enhancer_file):
         columns={0: 'chrom',  1: 'start', 2: 'end'}
     )
     
-    # filter by only numerical enhancers
-    enhancers = enhancers[enhancers.chrom.str.match('^chr\d+$')]
-    enhancers = bf.sanitize_bedframe(enhancers)
+    enhancers = bioframe_clean_autosomes(enhancers)
     
     return enhancers
+
+def get_peak_bioframe(peak_file):
+    """
+    Reads a .bed file containing called peaks, 
+    with no header but columns: chrom, start, end, peak_name, score
+    into a bioframe
+    """
+    
+    peaks = bf.read_table(peak_file).rename(
+        columns={0: 'chrom',  1: 'start', 
+                 2: 'end', 3: 'name', 4: 'score'
+                }
+    )
+    
+    return bioframe_clean_autosomes(peaks)
+
+def label_closest_peak(df, feature_intervals, feature_name):
+    """ Appends a column with the distance from each gene 
+    in df to the closest feature in feature_intervals.
+    
+    Returns
+    --------
+    df_out : pd.DataFrame
+        DataFrame with [feature_name]_distance column
+        
+    """
+    
+    df_out = df.copy()
+    df_out[feature_name+'_distance'] = bf.closest(
+        df, feature_intervals, suffixes=('','_'+feature_name)
+    )['distance']
+    
+    return df_out
 
 def label_closest_enhancer(df, enhancer_file, enhancer_set):
     """ Appends a column with the distance from each gene 
@@ -140,11 +182,8 @@ def label_closest_enhancer(df, enhancer_file, enhancer_set):
         
     """
     
-    df_out = df.copy()
     enhancers = get_enhancer_bioframe(enhancer_file)
-    df_out[enhancer_set+'_distance'] = bf.closest(
-        df, enhancers, suffixes=('','_enh')
-    )['distance']
+    df_out = label_closest_peak(df, enhancers, enhancer_set)
     
     return df_out
 
