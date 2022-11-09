@@ -185,7 +185,11 @@ def group_features_by_region(
     for cat, col in feature_category_colors.items():
 
         cat_ix = np.where(feature_df[feature_agg_key] == cat)
-
+        
+        if feature_df.iloc[cat_ix].shape[0] < 1:
+            print('category {} is empty, skipped'.format(cat))
+            continue
+            
         region_df[cat+'_counts'] = bf.count_overlaps(region_df, feature_df.iloc[cat_ix])['count']
         groups[cat] = region_df.groupby(region_group_col).sum([cat+'_counts'])[cat+'_counts']
 
@@ -242,6 +246,10 @@ def distribution_features_by_region(
     for cat, col in feature_category_colors.items():
 
         cat_ix = np.where(feature_df[feature_agg_key] == cat)
+        
+        if feature_df.iloc[cat_ix].shape[0] < 1:
+            print('category {} is empty, skipped'.format(cat))
+            continue
 
         region_df[cat+'_counts'] = bf.count_overlaps(region_df, feature_df.iloc[cat_ix])['count']
         groups[cat] = region_df.groupby(region_group_col).sum([cat+'_counts'])[cat+'_counts']
