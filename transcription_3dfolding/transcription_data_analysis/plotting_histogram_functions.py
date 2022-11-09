@@ -4,6 +4,7 @@ import bbi
 import bioframe as bf
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
+import warnings
 
 
 def plot_categorized_histogram(
@@ -187,7 +188,12 @@ def group_features_by_region(
         cat_ix = np.where(feature_df[feature_agg_key] == cat)
         
         if feature_df.iloc[cat_ix].shape[0] < 1:
-            print('category {} is empty, skipped'.format(cat))
+            warnings.warn(
+                (
+                "category {} is empty, skipped in plotting".
+                    format(cat)
+                )
+            )
             continue
             
         region_df[cat+'_counts'] = bf.count_overlaps(region_df, feature_df.iloc[cat_ix])['count']
@@ -248,7 +254,12 @@ def distribution_features_by_region(
         cat_ix = np.where(feature_df[feature_agg_key] == cat)
         
         if feature_df.iloc[cat_ix].shape[0] < 1:
-            print('category {} is empty, skipped'.format(cat))
+            warnings.warn(
+                (
+                "category {} is empty, skipped in plotting".
+                    format(cat)
+                )
+            )
             continue
 
         region_df[cat+'_counts'] = bf.count_overlaps(region_df, feature_df.iloc[cat_ix])['count']
