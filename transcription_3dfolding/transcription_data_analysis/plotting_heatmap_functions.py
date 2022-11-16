@@ -18,7 +18,6 @@ def format_ticks(ax, x=True, y=False, rotate=False):
     if rotate:
         ax.tick_params(axis='x',rotation=45)
 
-
 def generate_signal_matrix(
     interval_df,
     chip_seq_file,
