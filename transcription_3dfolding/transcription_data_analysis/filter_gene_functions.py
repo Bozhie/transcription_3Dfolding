@@ -9,7 +9,7 @@ import multiprocessing as mp
 import warnings
 
 
-def get_tss_gene_intervals(tss_df):
+def get_tss_gene_intervals(tss_df, return_cols=["gene_id", "chrom", "start", "end", "strand"]):
     """
     Input: a .gtf file containing the chr, start, end
     corresponding to the TSS for the transcripts ready from a
@@ -36,7 +36,7 @@ def get_tss_gene_intervals(tss_df):
     tss_df = tss_df.loc[True == tss_df["chrom"].str.contains("chr")]
 
     # drop duplicate TSSes
-    return tss_df[["gene_id", "chrom", "start", "end"]].drop_duplicates(["gene_id"])
+    return tss_df[return_cols].drop_duplicates(["gene_id"])
 
 
 def label_DE_status(
