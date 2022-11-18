@@ -39,6 +39,7 @@ def get_tss_gene_intervals(tss_df, return_cols=["gene_id", "chrom", "start", "en
     return tss_df[return_cols].drop_duplicates(["gene_id"])
 
 
+
 def label_DE_status(
     df,
     significance_col="padj",
@@ -112,3 +113,138 @@ def label_quantiles(
             df_out.loc[quantile_label_col] + "_" + quantile_labels
         )
     return df_out
+    
+
+def get_enhancer_bioframe(enhancer_file):
+    """
+    Reads enhancer .bed file with no header and returns
+    a clean bioferame, with only enhancers one numerical chromosomes.
+    """
+    
+    enhancers = bf.read_table(enhancer_file).rename(
+        columns={0: 'chrom',  1: 'start', 2: 'end'}
+    )
+    
+    # filter by only numerical enhancers
+    enhancers = enhancers[enhancers.chrom.str.match('^chr\d+$')]
+    enhancers = bf.sanitize_bedframe(enhancers)
+    
+    return enhancers
+
+def label_closest_enhancer(df, enhancer_file, enhancer_set):
+    """ Appends a column with the distance from each gene 
+    in df to the closest enhancer.
+    
+    Returns
+    --------
+    df_out : pd.DataFrame
+        DataFrame with [enhancer_set]_distance column
+        
+    """
+    
+    df_out = df.copy()
+    enhancers = get_enhancer_bioframe(enhancer_file)
+    df_out[enhancer_set+'_distance'] = bf.closest(
+        df, enhancers, suffixes=('','_enh')
+    )['distance']
+    
+    return df_out
+
+
+def windows_from_boundaries(boundaries, chromsizes, take_midpoint=False):
+    """
+    Using a set of boundaries, builds the set of genomic interval 'windows'
+        that represent the regions separated by these boundaries. 
+    
+    Parameters:
+    -----------
+    boundaries: df containing boundaries of some feature, defined by genomic
+        intervals (chrom, start, end).
+    chromsizes: a dictionary with the chromosome sizes for the final window boundaries.
+    take_midpoint: when False, the windows are the regions outside the boundaries. 
+        When true, the windows start and end at the midpoint, inside each boundary.
+    
+    Returns:
+    --------
+    window_df: A bioframe containing genomic intervals that represent the
+        regions between these boundaries.
+    """
+
+    window_df = pd.DataFrame(columns=['chrom', 'start', 'end'])
+
+    for chrom in boundaries.chrom.unique():
+
+        chrom_boundaries = boundaries[boundaries['chrom'] == chrom]
+        if take_midpoint:
+            mid = (chrom_boundaries['end'] + chrom_boundaries['start'])/2
+        size = len(chrom_boundaries)
+        
+        window_starts = np.empty([size+1])
+        window_starts[0] = 0
+        if take_midpoint:
+            window_starts[1:] = mid + 1
+        else:
+            window_starts[1:] = chrom_boundaries['end']
+        
+        window_ends = np.empty([size+1])
+        window_ends[-1] = chromsizes[chrom]
+        if take_midpoint:
+            window_ends[0:-1] = mid
+        else:
+            window_ends[0:-1] = chrom_boundaries['start']
+
+        tmp = pd.DataFrame({'chrom' : chrom,
+                            'start' : window_starts,
+                            'end' : window_ends}
+                          )
+        
+        window_df = window_df.append(tmp, ignore_index=True)
+    
+    return bf.sanitize_bedframe(window_df)
+
+
+def extract_chrom_sizes_from_insulation(insulation_table):
+    """ Returns a dictionary of the chromosome sizes from an insulation table. """
+    
+    chrom_sizes = {}
+    for chrom in insulation_table['chrom'].unique():
+        size = insulation_table[insulation_table['chrom'] == chrom][-1:]['end']
+        chrom_sizes[chrom] = size
+    return chrom_sizes
+
+def tad_windows_from_boundaries(insulation_table, take_midpoint=False):
+    """
+    Using a set of insulation boundaries, builds a set of genomic intervals 
+        that represent the TADs, or regions between these boundaries. 
+        
+        Each chromosome has the following set of TAD intervals:
+            - first TAD interval begins at start of chromosome and ends at 
+                the beginning of the next boundary.
+            - middle TAD intervals start at end of previous insulation boundary,
+                and end at beginning of the next one.
+            - last TAD interval starts at end of last insulation boundary
+                and ends at the end of the chromosome.
+    
+    Parameters:
+    -----------
+    boundaries: df containing boundaries of some feature, with 'start' and 'ends'.
+    chromsizes: a dictionary with the chromosome sizes for the final window boundaries.
+    take_midpoint: when False, the windows are the regions outside the 
+    
+    Returns:
+    --------
+    tad_df: A bioframe containing genomic intervals that represent the TADs,
+        or regions between these boundaries. Starts from 
+    
+    """
+    
+    # Get chrom_sizes
+    chrom_sizes = extract_chrom_sizes_from_insulation(insulation_table)
+    # Take only boundaries called strong from this table
+    insulation_boundaries = insulation_table.query('is_boundary_200000 == True')
+    # Dropping any coordinates with chrX
+    insulation_boundaries = insulation_boundaries[~insulation_boundaries.chrom.isin(['chrX'])]
+    
+    tad_df = windows_from_boundaries(insulation_boundaries, chrom_sizes, take_midpoint=take_midpoint)
+    return tad_df
+
