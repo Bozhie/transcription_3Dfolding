@@ -7,6 +7,16 @@ import matplotlib.colors as colors
 from functools import partial
 import multiprocessing as mp
 
+from matplotlib.ticker import EngFormatter
+bp_formatter = EngFormatter('b')
+def format_ticks(ax, x=True, y=False, rotate=False):
+    if y:
+        ax.yaxis.set_major_formatter(bp_formatter)
+    if x:
+        ax.xaxis.set_major_formatter(bp_formatter)
+        ax.xaxis.tick_bottom()
+    if rotate:
+        ax.tick_params(axis='x',rotation=45)
 
 def generate_signal_matrix(
     interval_df,
