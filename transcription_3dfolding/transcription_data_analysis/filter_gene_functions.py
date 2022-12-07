@@ -251,7 +251,7 @@ def extract_chrom_sizes_from_insulation(insulation_table):
         chrom_sizes[chrom] = size
     return chrom_sizes
 
-def tad_windows_from_boundaries(insulation_table, take_midpoint=False):
+def tad_windows_from_boundaries(insulation_table, take_midpoint=True):
     """
     Using a set of insulation boundaries, builds a set of genomic intervals 
         that represent the TADs, or regions between these boundaries. 
