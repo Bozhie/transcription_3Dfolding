@@ -9,7 +9,11 @@ import multiprocessing as mp
 import warnings
 
 
-def get_tss_gene_intervals(tss_df, return_cols=["gene_id", "chrom", "start", "end", "strand"]):
+def get_tss_gene_intervals(
+    tss_df, 
+    return_cols=["gene_id", "chrom", "start", "end", "strand"],
+    chrom_keep='autosomes',
+    ):
     """
     Input: a .gtf file containing the chr, start, end
     corresponding to the TSS for the transcripts ready from a
@@ -17,23 +21,15 @@ def get_tss_gene_intervals(tss_df, return_cols=["gene_id", "chrom", "start", "en
     Output: a dataframe in bioframe format with a single TSS
     per gene, with non-autosomes removed.
     """
-
-    # cleaning out less-well defined chromosome numbers
-    tss_df = tss_df.loc[False == (tss_df["seqname"].str.contains("NT_"))]
-    tss_df = tss_df.loc[False == (tss_df["seqname"].str.contains("MT"))]
-
-    # paste 'chr' to all chromosome names
-    tss_df["seqname"] = tss_df["seqname"]
-
+    
     # rename column to chrom to match bedframe/bioframe format
     tss_df = tss_df.rename(columns={"seqname": "chrom"})
 
     # Removing pseudo chromosomes
-    tss_df = tss_df.loc[False == (tss_df["chrom"].str.contains("chrGL"))]
-    tss_df = tss_df.loc[False == (tss_df["chrom"].str.contains("chrJH"))]
-    tss_df = tss_df.loc[False == (tss_df["chrom"].str.contains("chrY"))]
-    tss_df = tss_df.loc[False == (tss_df["chrom"].str.contains("chrM"))]
-    tss_df = tss_df.loc[True == tss_df["chrom"].str.contains("chr")]
+    if chrom_keep == 'autosomes':
+        tss_df = bioframe_clean_autosomes(tss_df)
+    elif chrom_keep == 'chromosomes':
+        tss_df = bioframe_clean_chromosomes(tss_df)
 
     # drop duplicate TSSes
     return tss_df[return_cols].drop_duplicates(["gene_id"])
@@ -113,12 +109,22 @@ def label_quantiles(
             df_out.loc[quantile_label_col] + "_" + quantile_labels
         )
     return df_out
+ 
+def bioframe_clean_chromosomes(frame):
+    """
+    Takes a dataframe or bioframe and returns
+    a sanitized bioframe with only the intervals on autosomes.
+    """
     
+    frame = frame[frame.chrom.str.match('^chr[\dXY]+$')]
+    frame = bf.sanitize_bedframe(frame)
+        
+    return frame
 
 def bioframe_clean_autosomes(frame):
     """
     Takes a dataframe or bioframe and returns
-    a santizied bioframe with only the intervals on autosomes.
+    a sanitized bioframe with only the intervals on autosomes.
     """
     
     frame = frame[frame.chrom.str.match('^chr\d+$')]
