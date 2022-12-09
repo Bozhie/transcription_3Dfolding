@@ -2,11 +2,104 @@ import pandas as pd
 import numpy as np
 import bbi
 import bioframe as bf
+from gtfparse import read_gtf
+
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 from functools import partial
 import multiprocessing as mp
 import warnings
+
+
+####################
+#
+# Project File locations
+#
+####################
+default_mm10_gtf = ( '/project/fudenber_735/collaborations/karissa_2022/old/RNAseq/' +
+                    'STAR_Gencode_alignment/tss_annotions_gencode.vM23.primary_assembly.gtf'
+                   )
+default_project = ('/project/fudenber_735/collaborations/' +
+                   'karissa_2022/20220812_EA18-1_RNAseq-Analysis_forGeoff/'
+                  )
+
+day1_sig_results = (default_project +
+                    'EA18.1_ESC_1d-depletion_DESeq2/' + 
+                    '20220817_EA18-1_resSig_ESC_1d-depletion.csv'
+                   )
+raw_counts = default_project+'20220816_featureCounts.csv'
+
+vst_norm_counts = (default_project +
+                   'EA18.1_ESC_1d-depletion_DESeq2/' +
+                   '20220817_EA18-1_ESC-1d_sf-normalized_vst-transformed.csv'
+                  )
+
+
+def load_tss_df(gtf=default_mm10_gtf,
+                rna_tsv=day1_sig_results,
+                chrom_keep='autosomes',
+                counts_tables={'raw_counts_name' : raw_counts,
+                                'vst_counts' : vst_norm_counts,
+                              },
+                counts_usage={'raw_counts_name' : 'append_name',
+                              'vst_counts' : 'wt_avg'
+                             },
+                cutoff=6,
+                cutoff_col='avg_vst_counts',
+                wt_samples=['KHRNA1', 'KHRNA7', 'KHRNA13', 'KHRNA22', 'KHRNA23', 'KHRNA50']
+               ):
+    """
+    Processes rna_tsv and returns a dataframe. Performs data manipulations 
+    to annotate gene names and join additional features from experiment files.
+    
+    gtf: string for filename of .gtf file for this genome.
+    rna_tsv: string filename of RNA seq results
+    chrom_keep: ['autosomes', 'chromosomes'] defines which genes to keep based
+        on chromosome mapping.
+    counts_tables: {string name : string for filename} of additional rna-seq counts data tables
+    counts_usage: {string name : string usage_setting} describing what data manipulations to apply
+                   'append_name' gene_id from raw counts to re-index rna_tsv with full dataset
+                   'wt_avg' takes average of wt samples and appends to rna_tsv
+    cutoff: int cutoff value for filtering rows that fall below threshold
+    cutoff_col: column in rna_tsv to compare to cutoff
+    wt_samples: [list of sample names] that designate columns in counts_tables 
+                only relevant if using 'wt_avg'
+    ------
+    Returns
+
+    rna_tsv
+    """
+    
+    rna_df = pd.read_csv(rna_tsv)
+    
+    for name, file in counts_tables.items():
+
+        if counts_usage[name] == 'append_name':
+            # add feature counts information to label genes not in the significant results table
+            feat_df = pd.read_csv(file)
+            rna_df = rna_df.merge(feat_df['Geneid'], how='outer')
+            
+        elif counts_usage[name] == 'wt_avg':
+            counts_df = pd.read_csv(file).rename(
+                                            columns={'Unnamed: 0' : 'Geneid'}
+                                            ).astype({'Geneid': 'object'})
+            
+            counts_df['avg_'+name] = counts_df[wt_samples].mean(axis='columns')
+            rna_df = rna_df.merge(counts_df[['Geneid', 'avg_'+name]], on='Geneid', how='outer')
+            rna_df['avg_'+name].fillna(0, inplace=True)
+    
+    gtf_df = read_gtf(gtf)
+    tss_intervals = get_tss_gene_intervals(gtf_df)
+    tss_intervals['tss'] = tss_intervals['start'].copy()
+
+    tss_df = tss_intervals.merge(rna_df.copy(),  how='left',
+                left_on='gene_id', right_on='Geneid')
+    
+    if cutoff is not None:
+        cut = (tss_df[cutoff_col] > cutoff)
+        tss_df = tss_df[cut]
+    
+    return tss_df
 
 
 def get_tss_gene_intervals(
