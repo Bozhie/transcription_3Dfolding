@@ -273,22 +273,6 @@ def label_closest_peak(df, feature_intervals, feature_name):
     
     return df_out
 
-def label_closest_enhancer(df, enhancer_file, enhancer_set):
-    """ Appends a column with the distance from each gene 
-    in df to the closest enhancer.
-    
-    Returns
-    --------
-    df_out : pd.DataFrame
-        DataFrame with [enhancer_set]_distance column
-        
-    """
-    
-    enhancers = get_enhancer_bioframe(enhancer_file)
-    df_out = label_closest_peak(df, enhancers, enhancer_set)
-    
-    return df_out
-
 
 def windows_from_boundaries(boundaries, chromsizes, take_midpoint=False):
     """
