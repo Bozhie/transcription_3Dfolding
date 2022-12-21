@@ -4,7 +4,79 @@ import bbi
 import bioframe as bf
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
+import warnings
 
+
+def plot_categorized_histogram(
+    df, 
+    column,
+    agg_key='DE_status',
+    category_colors={"up": 'tab:red', 
+                     "down": 'tab:blue', 
+                     "nonsig": 'tab:gray'},
+    bins=50,
+    val_range=(2,8),
+    cumulative=False,
+    density=False,
+    plot_title=None,
+    ax=None,
+    add_legend=True
+):
+    """
+    Plots distribution of values in column across different bins in 
+    each category defined in df['agg_key'].
+    
+    Parameters:
+    -----------
+    df: pandas dataframe that has 'column' and the categories labeled in 
+        'agg_key'.
+    distance_col: the column in df with the distances for plotting
+    agg_key: column in df containing category labels
+    category_colors: the category label values in df[agg_key] mapped
+        to the colors for plotting.
+    bins: number of bins for histogram.
+    val_range: range of log10 values in 'distance_col' for setting max and
+        min.
+    cumulative: True/False for whether the plot should build up cumulative
+        distribution on x-axis.
+    plot_title: title or this plot
+    ax: the axis for plotting.
+
+    Returns:
+    --------
+    plot
+    """
+    
+    if ax == None:
+        ax = plt.subplot()
+    
+    for cat, col in category_colors.items():
+    
+        cat_ix = np.where(df[agg_key] == cat)
+
+        values = df.iloc[cat_ix][column].values
+        ax.hist(values,
+                bins=bins,
+                range=val_range,
+                density=density,
+                cumulative=cumulative,
+                histtype='step',
+                lw=1.5,
+                label=cat, 
+                color=col)
+
+    if add_legend:
+        ax.legend(loc='upper right')
+    if density:
+        ylab = 'frequency'
+    else:
+        ylab = 'counts'
+    ax.set(
+        xlabel= column,
+        ylabel= ylab
+    )
+    if plot_title != None:
+        ax.set_title(plot_title)
         
 def plot_distance_histogram(
     df, 
@@ -46,6 +118,8 @@ def plot_distance_histogram(
     plot
     """
     
+    df = df.copy().dropna(subset=[distance_col])
+    
     if ax == None:
         ax = plt.subplot()
     
@@ -66,9 +140,85 @@ def plot_distance_histogram(
 
     if add_legend:
         ax.legend(loc='upper left')
+    if cumulative:
+        ylab = 'cumulative count'
+    else:
+        ylab = 'frequency'
     ax.set(
-        xlabel='log10 distance',
-        ylabel='frequency'
+        xlabel = 'log10 distance',
+        ylabel = ylab
+    )
+    if plot_title != None:
+        ax.set_title(plot_title)
+        
+        
+def plot_count_histogram(
+    df, 
+    count_col,
+    agg_key='DE_status',
+    category_colors={"up": 'tab:red', 
+                     "down": 'tab:blue', 
+                     "nonsig": 'tab:gray'},
+    bins=50,
+    cumulative=False,
+    plot_title=None,
+    ax=None,
+    add_legend=True
+):
+    """
+    Plots distribution of counts across different bins in 
+    each category defined in df['agg_key'].
+    
+    Parameters:
+    -----------
+    df: pandas dataframe that has counts in 'count_col'
+        and the categories labeled in 'agg_key'.
+    count_col: the column in df with the counts for plotting
+    agg_key: column in df containing category labels
+    category_colors: the category label values in df[agg_key] mapped
+        to the colors for plotting.
+    bins: number of bins for histogram.
+    cumulative: True/False for whether the plot should build up cumulative
+        distribution on x-axis.
+    plot_title: title or this plot
+    ax: the axis for plotting.
+
+    Returns:
+    --------
+    plot
+    """
+    
+    df = df.copy().dropna(subset=[count_col])
+    
+    if ax == None:
+        ax = plt.subplot()
+        
+    val_range = (df[count_col].min(), df[count_col].max())
+    
+    for cat, col in category_colors.items():
+    
+        cat_ix = np.where(df[agg_key] == cat)
+
+        dist = df.iloc[cat_ix][count_col]
+        ax.hist(dist,
+                bins=bins,
+                density=True,
+                range=val_range,
+                cumulative=cumulative,
+                histtype='step',
+                lw=1.5,
+                label=cat, 
+                color=col)
+
+    if add_legend:
+        ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
+    if cumulative:
+        ylab = 'cumulative count'
+    else:
+        ylab = 'frequency'
+    ax.set(
+        xlabel = ' '.join(count_col.split('_')),
+        ylabel = ylab
     )
     if plot_title != None:
         ax.set_title(plot_title)
@@ -114,7 +264,16 @@ def group_features_by_region(
     for cat, col in feature_category_colors.items():
 
         cat_ix = np.where(feature_df[feature_agg_key] == cat)
-
+        
+        if feature_df.iloc[cat_ix].shape[0] < 1:
+            warnings.warn(
+                (
+                "category {} is empty, skipped in plotting".
+                    format(cat)
+                )
+            )
+            continue
+            
         region_df[cat+'_counts'] = bf.count_overlaps(region_df, feature_df.iloc[cat_ix])['count']
         groups[cat] = region_df.groupby(region_group_col).sum([cat+'_counts'])[cat+'_counts']
 
@@ -171,6 +330,15 @@ def distribution_features_by_region(
     for cat, col in feature_category_colors.items():
 
         cat_ix = np.where(feature_df[feature_agg_key] == cat)
+        
+        if feature_df.iloc[cat_ix].shape[0] < 1:
+            warnings.warn(
+                (
+                "category {} is empty, skipped in plotting".
+                    format(cat)
+                )
+            )
+            continue
 
         region_df[cat+'_counts'] = bf.count_overlaps(region_df, feature_df.iloc[cat_ix])['count']
         groups[cat] = region_df.groupby(region_group_col).sum([cat+'_counts'])[cat+'_counts']
@@ -188,3 +356,39 @@ def distribution_features_by_region(
     
     if plot_title != None:
         ax.set_title(plot_title)
+
+        
+def assign_bin(df, value_col, bin_edges, bin_col_name):
+    """
+    Takes a dataframe and appends a column of bins to
+    categorize the values in df['value_col'].
+    
+    Parameters:
+    -----------
+    df: dataframe
+    value_col: values (numerical) to be sorted into bins
+    bin_edges: an array of the [min, max) for sorting every bin
+    bin_col_name: new column in df with bin
+    
+    Returns:
+    --------
+    df with df[bin_col_name] populated with the value of
+        the bottom edge of the bin (e.g. if value_col=3, 
+        bin_edges=[0, 5, 10], bin = 0)
+    """
+    
+    df_out = df.copy()
+    
+    prev = None
+    
+    for i in bin_edges:
+        if prev == None:
+            prev = i
+            continue
+
+        bin_ix = (df['count_ctcf_peaks'] >= prev) & (df['count_ctcf_peaks'] < i)
+        df_out.loc[bin_ix, 'count_ctcf_bin'] = prev
+
+        prev = i
+    
+    return df_out

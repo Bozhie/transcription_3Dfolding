@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 import bbi
 import bioframe as bf
+from gtfparse import read_gtf
+
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 from functools import partial
@@ -9,7 +11,103 @@ import multiprocessing as mp
 import warnings
 
 
-def get_tss_gene_intervals(tss_df, return_cols=["gene_id", "chrom", "start", "end", "strand"]):
+####################
+#
+# Project File locations
+#
+####################
+default_mm10_gtf = ( '/project/fudenber_735/collaborations/karissa_2022/old/RNAseq/' +
+                    'STAR_Gencode_alignment/tss_annotions_gencode.vM23.primary_assembly.gtf'
+                   )
+
+default_project = ('/project/fudenber_735/collaborations/' +
+                   'karissa_2022/20220812_EA18-1_RNAseq-Analysis_forGeoff/'
+                  )
+
+day1_sig_results = (default_project +
+                    'EA18.1_ESC_1d-depletion_DESeq2/' + 
+                    '20220817_EA18-1_resSig_ESC_1d-depletion.csv'
+                   )
+raw_counts = default_project+'20220816_featureCounts.csv'
+
+vst_norm_counts = (default_project +
+                   'EA18.1_ESC_1d-depletion_DESeq2/' +
+                   '20220817_EA18-1_ESC-1d_sf-normalized_vst-transformed.csv'
+                  )
+
+
+def load_tss_df(gtf=default_mm10_gtf,
+                rna_tsv=day1_sig_results,
+                chrom_keep='autosomes',
+                counts_tables={'raw_counts_name' : raw_counts,
+                                'vst_counts' : vst_norm_counts,
+                              },
+                counts_usage={'raw_counts_name' : 'append_name',
+                              'vst_counts' : 'wt_avg'
+                             },
+                cutoff=6,
+                cutoff_col='avg_vst_counts',
+                wt_samples=['KHRNA1', 'KHRNA7', 'KHRNA13', 'KHRNA22', 'KHRNA23', 'KHRNA50']
+               ):
+    """
+    Processes rna_tsv and returns a dataframe. Performs data manipulations 
+    to annotate gene names and join additional features from experiment files.
+    
+    gtf: string for filename of .gtf file for this genome.
+    rna_tsv: string filename of RNA seq results
+    chrom_keep: ['autosomes', 'chromosomes'] defines which genes to keep based
+        on chromosome mapping.
+    counts_tables: {string name : string for filename} of additional rna-seq counts data tables
+    counts_usage: {string name : string usage_setting} describing what data manipulations to apply
+                   'append_name' gene_id from raw counts to re-index rna_tsv with full dataset
+                   'wt_avg' takes average of wt samples and appends to rna_tsv
+    cutoff: int cutoff value for filtering rows that fall below threshold
+    cutoff_col: column in rna_tsv to compare to cutoff
+    wt_samples: [list of sample names] that designate columns in counts_tables 
+                only relevant if using 'wt_avg'
+    ------
+    Returns
+
+    rna_tsv
+    """
+    
+    rna_df = pd.read_csv(rna_tsv)
+    
+    for name, file in counts_tables.items():
+
+        if counts_usage[name] == 'append_name':
+            # add feature counts information to label genes not in the significant results table
+            feat_df = pd.read_csv(file)
+            rna_df = rna_df.merge(feat_df['Geneid'], how='outer')
+            
+        elif counts_usage[name] == 'wt_avg':
+            counts_df = pd.read_csv(file).rename(
+                                            columns={'Unnamed: 0' : 'Geneid'}
+                                            ).astype({'Geneid': 'object'})
+            
+            counts_df['avg_'+name] = counts_df[wt_samples].mean(axis='columns')
+            rna_df = rna_df.merge(counts_df[['Geneid', 'avg_'+name]], on='Geneid', how='outer')
+            rna_df['avg_'+name].fillna(0, inplace=True)
+    
+    gtf_df = read_gtf(gtf)
+    tss_intervals = get_tss_gene_intervals(gtf_df)
+    tss_intervals['tss'] = tss_intervals['start'].copy()
+
+    tss_df = tss_intervals.merge(rna_df.copy(),  how='left',
+                left_on='gene_id', right_on='Geneid')
+    
+    if cutoff is not None:
+        cut = (tss_df[cutoff_col] > cutoff)
+        tss_df = tss_df[cut]
+    
+    return tss_df
+
+
+def get_tss_gene_intervals(
+    tss_df, 
+    return_cols=["gene_id", "chrom", "start", "end", "strand"],
+    chrom_keep='autosomes',
+    ):
     """
     Input: a .gtf file containing the chr, start, end
     corresponding to the TSS for the transcripts ready from a
@@ -17,23 +115,15 @@ def get_tss_gene_intervals(tss_df, return_cols=["gene_id", "chrom", "start", "en
     Output: a dataframe in bioframe format with a single TSS
     per gene, with non-autosomes removed.
     """
-
-    # cleaning out less-well defined chromosome numbers
-    tss_df = tss_df.loc[False == (tss_df["seqname"].str.contains("NT_"))]
-    tss_df = tss_df.loc[False == (tss_df["seqname"].str.contains("MT"))]
-
-    # paste 'chr' to all chromosome names
-    tss_df["seqname"] = tss_df["seqname"]
-
+    
     # rename column to chrom to match bedframe/bioframe format
     tss_df = tss_df.rename(columns={"seqname": "chrom"})
 
     # Removing pseudo chromosomes
-    tss_df = tss_df.loc[False == (tss_df["chrom"].str.contains("chrGL"))]
-    tss_df = tss_df.loc[False == (tss_df["chrom"].str.contains("chrJH"))]
-    tss_df = tss_df.loc[False == (tss_df["chrom"].str.contains("chrY"))]
-    tss_df = tss_df.loc[False == (tss_df["chrom"].str.contains("chrM"))]
-    tss_df = tss_df.loc[True == tss_df["chrom"].str.contains("chr")]
+    if chrom_keep == 'autosomes':
+        tss_df = bioframe_clean_autosomes(tss_df)
+    elif chrom_keep == 'chromosomes':
+        tss_df = bioframe_clean_chromosomes(tss_df)
 
     # drop duplicate TSSes
     return tss_df[return_cols].drop_duplicates(["gene_id"])
@@ -113,7 +203,28 @@ def label_quantiles(
             df_out.loc[quantile_label_col] + "_" + quantile_labels
         )
     return df_out
+ 
+def bioframe_clean_chromosomes(frame):
+    """
+    Takes a dataframe or bioframe and returns
+    a sanitized bioframe with only the intervals on autosomes.
+    """
     
+    frame = frame[frame.chrom.str.match('^chr[\dXY]+$')]
+    frame = bf.sanitize_bedframe(frame)
+        
+    return frame
+
+def bioframe_clean_autosomes(frame):
+    """
+    Takes a dataframe or bioframe and returns
+    a sanitized bioframe with only the intervals on autosomes.
+    """
+    
+    frame = frame[frame.chrom.str.match('^chr\d+$')]
+    frame = bf.sanitize_bedframe(frame)
+        
+    return frame
 
 def get_enhancer_bioframe(enhancer_file):
     """
@@ -125,27 +236,39 @@ def get_enhancer_bioframe(enhancer_file):
         columns={0: 'chrom',  1: 'start', 2: 'end'}
     )
     
-    # filter by only numerical enhancers
-    enhancers = enhancers[enhancers.chrom.str.match('^chr\d+$')]
-    enhancers = bf.sanitize_bedframe(enhancers)
+    enhancers = bioframe_clean_autosomes(enhancers)
     
     return enhancers
 
-def label_closest_enhancer(df, enhancer_file, enhancer_set):
+def get_peak_bioframe(peak_file):
+    """
+    Reads a .bed file containing called peaks, 
+    with no header but columns: chrom, start, end, peak_name, score
+    into a bioframe
+    """
+    
+    peaks = bf.read_table(peak_file).rename(
+        columns={0: 'chrom',  1: 'start', 
+                 2: 'end', 3: 'name', 4: 'score'
+                }
+    )
+    
+    return bioframe_clean_autosomes(peaks)
+
+def label_closest_peak(df, feature_intervals, feature_name):
     """ Appends a column with the distance from each gene 
-    in df to the closest enhancer.
+    in df to the closest feature in feature_intervals.
     
     Returns
     --------
     df_out : pd.DataFrame
-        DataFrame with [enhancer_set]_distance column
+        DataFrame with [feature_name]_distance column
         
     """
     
     df_out = df.copy()
-    enhancers = get_enhancer_bioframe(enhancer_file)
-    df_out[enhancer_set+'_distance'] = bf.closest(
-        df, enhancers, suffixes=('','_enh')
+    df_out[feature_name+'_distance'] = bf.closest(
+        df, feature_intervals, suffixes=('','_'+feature_name)
     )['distance']
     
     return df_out
@@ -212,7 +335,7 @@ def extract_chrom_sizes_from_insulation(insulation_table):
         chrom_sizes[chrom] = size
     return chrom_sizes
 
-def tad_windows_from_boundaries(insulation_table, take_midpoint=False):
+def tad_windows_from_boundaries(insulation_table, take_midpoint=True):
     """
     Using a set of insulation boundaries, builds a set of genomic intervals 
         that represent the TADs, or regions between these boundaries. 
