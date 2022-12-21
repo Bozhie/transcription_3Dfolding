@@ -222,72 +222,6 @@ def plot_count_histogram(
     )
     if plot_title != None:
         ax.set_title(plot_title)
-
-        
-def group_features_by_region(
-    region_df,
-    feature_df,
-    region_group_col='num_enhancers',
-    feature_agg_key='DE_status',
-    feature_name='genes',
-    feature_category_colors={"up": 'tab:red', 
-                             "down": 'tab:blue',
-                             "nonsig": 'tab:grey'},
-    ax=None,
-    plot_title=None
-):
-    """
-    Plots bar graph of the sum of features that overlap with the intervals
-    in region_df. The x axis is categories of regions defined by region_df[region_group_col]
-    and y axis is number of features, grouped by category labels in feature_df[feature_agg_key].
-    
-    Parameters:
-    -----------
-    region_df: bioframe df with one interval (chr, start, end) for regions.
-    feature_df: bioframe df with one interval (chr, start, end) for features (e.g. genes)
-    region_group_col: column in region_df with categories of the regions.
-    feature_agg_key: column in feature_df that has category labels for aggregation.
-    feature_category_colors: categories in feature_df[feature_agg_key] and colors for plotting.
-    
-    Returns:
-    --------
-    bar plot
-    """
-    
-    if ax == None:
-        ax = plt.subplot()
-    
-    
-    groups = pd.DataFrame()
-    bar_size = 1/(len(feature_category_colors) + 1)
-    x_pos = 0
-    for cat, col in feature_category_colors.items():
-
-        cat_ix = np.where(feature_df[feature_agg_key] == cat)
-        
-        if feature_df.iloc[cat_ix].shape[0] < 1:
-            warnings.warn(
-                (
-                "category {} is empty, skipped in plotting".
-                    format(cat)
-                )
-            )
-            continue
-            
-        region_df[cat+'_counts'] = bf.count_overlaps(region_df, feature_df.iloc[cat_ix])['count']
-        groups[cat] = region_df.groupby(region_group_col).sum([cat+'_counts'])[cat+'_counts']
-
-        ax.bar(groups.index + x_pos, groups[cat], width=bar_size, color=col, label=cat)
-        x_pos += bar_size
-        
-    ax.set(
-        xlabel=' '.join(region_group_col.split('_')),
-        ylabel='Number of {}by {}'.format(feature_name,
-                                              ' '.join(feature_agg_key.split('_')))
-    )
-    ax.legend()
-    if plot_title != None:
-        ax.set_title(plot_title)
     
     
 def distribution_features_by_region(
@@ -299,6 +233,8 @@ def distribution_features_by_region(
     feature_category_colors={"up": 'tab:red', 
                              "down": 'tab:blue',
                              "nonsig": 'tab:grey'},
+    bin_size=1,
+    percentage=True,
     ax=None,
     plot_title=None
 ):
@@ -327,10 +263,12 @@ def distribution_features_by_region(
     groups = pd.DataFrame()
     bar_size = 1/(len(feature_category_colors) + 1)
     x_pos = 0
-    for cat, col in feature_category_colors.items():
+    max_count_val = max(region_df[region_group_col])
+
+    # collect the number of overlapping features per region for each category
+    for cat, _ in feature_category_colors.items():
 
         cat_ix = np.where(feature_df[feature_agg_key] == cat)
-        
         if feature_df.iloc[cat_ix].shape[0] < 1:
             warnings.warn(
                 (
@@ -341,16 +279,35 @@ def distribution_features_by_region(
             continue
 
         region_df[cat+'_counts'] = bf.count_overlaps(region_df, feature_df.iloc[cat_ix])['count']
-        groups[cat] = region_df.groupby(region_group_col).sum([cat+'_counts'])[cat+'_counts']
-        perc = groups[cat]/groups[cat].sum()
 
-        ax.bar(groups.index + x_pos, perc, width=bar_size, color=col, label=cat)
+    # create x-axis values, where each bin is [a, b)
+    bins = np.arange(0, max_count_val+1, bin_size)
+
+    # aggregate across bins to generate bar plot
+    for cat, color in feature_category_colors.items():
+
+        counts = []
+        for i in bins:
+            counts.append(region_df.groupby(region_group_col).sum([cat+'_counts'])[cat+'_counts'][i:i+bin_size].sum())
+
+        groups[cat] = counts
+        if percentage:
+            vals = groups[cat]/groups[cat].sum()
+            lab = 'Percentage of {} by {}'.format(feature_name,
+                                                ' '.join(feature_agg_key.split('_')))
+        else:
+            vals = counts
+            lab = 'Number of {}by {}'.format(feature_name,
+                                              ' '.join(feature_agg_key.split('_')))
+        ax.bar(groups.index + x_pos + .75*bar_size, vals, width=bar_size, color=color, label=cat)
         x_pos += bar_size
+
         
     ax.set(
+        xticks=groups.index,
+        xticklabels=bins,
         xlabel=' '.join(region_group_col.split('_')),
-        ylabel='Percentage of {} by {}'.format(feature_name,
-                                              ' '.join(feature_agg_key.split('_')))
+        ylabel=lab
     )
     ax.legend()
     
