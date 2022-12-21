@@ -231,27 +231,22 @@ def get_enhancer_bioframe(enhancer_file):
     Reads enhancer .bed file with no header and returns
     a clean bioferame, with only enhancers one numerical chromosomes.
     """
-    
-    enhancers = bf.read_table(enhancer_file).rename(
-        columns={0: 'chrom',  1: 'start', 2: 'end'}
-    )
-    
-    enhancers = bioframe_clean_autosomes(enhancers)
+    enhancers = get_peak_bioframe(enhancer_file, schema='bed3')
     
     return enhancers
 
-def get_peak_bioframe(peak_file):
+def get_peak_bioframe(peak_file,
+                        schema='bed',
+                        column_names=None):
     """
     Reads a .bed file containing called peaks, 
     with no header but columns: chrom, start, end, peak_name, score
     into a bioframe
     """
     
-    peaks = bf.read_table(peak_file).rename(
-        columns={0: 'chrom',  1: 'start', 
-                 2: 'end', 3: 'name', 4: 'score'
-                }
-    )
+    peaks = bf.read_table(peak_file, schema=schema)
+    if column_names is not None:
+        peaks.rename(column_names)
     
     return bioframe_clean_autosomes(peaks)
 
