@@ -371,3 +371,88 @@ def tad_windows_from_boundaries(insulation_table, take_midpoint=True):
     tad_df = windows_from_boundaries(insulation_boundaries, chrom_sizes, take_midpoint=take_midpoint)
     return tad_df
 
+# todo: move to helper scripts. 
+
+def extract_features_around_TSS(tss_df, feature_df, window_size=int(1e6)):
+    """
+    Generate a dataframe of distances to all features within a window around a TSS.
+    used as input for histogram of element density within a window.
+    
+    Parameters:
+    -----------
+    tss_df: pandas dataframe
+        Dataframe of TSS positions
+    feature_df : pd.DataFrame
+        DataFrame of features in bed format
+    window_size : int
+        maximum distance considered
+        
+    Returns
+    --------
+    tss_feature_df : pd.DataFrame
+        Dataframe distances between each TSS and features within the window
+        
+    """
+    
+    tss_feature_df = bf.overlap(
+        bf.expand(tss_df, pad= window_size),
+        feature_df,
+        how = 'left'
+    )
+    mids = .5*(tss_feature_df['start_']+tss_feature_df['end_']).values 
+    dists = np.abs( (mids- tss_feature_df['tss'].values))
+    tss_feature_df['dist'] = dists
+    
+    return tss_feature_df
+
+def mask_tss_proximal_features( feature_df, tss_df, window_size=int(5e3)) :
+    """
+    Drop features within window_size of a tss.
+      
+    Parameters:
+    -----------
+
+    feature_df : pd.DataFrame
+        DataFrame of features in bed format
+    tss_df: pandas dataframe
+        Dataframe of TSS positions        
+    window_size : int
+        masking distance around each TSS
+
+    Returns
+    --------
+    feature_df_pruned : pd.DataFrame
+        filtered dataframe
+        
+    """
+    feature_df_pruned = bf.setdiff(feature_df, 
+        bf.expand(tss_df, pad= window_size))
+    return feature_df_pruned
+
+
+def mask_gene_body_features( feature_df, tss_df, extend_gene_bp=int(1e3)):
+    """
+    Drop features within gene bodies
+    
+    Parameters:
+    -----------
+
+    feature_df : pd.DataFrame
+        DataFrame of features in bed format
+    tss_df: pandas dataframe
+        Dataframe of TSS positions, also has keys start_gene and stop_gene 
+        used for dropping gene-body overlaps.
+        
+    Returns
+    --------
+    feature_df_pruned : pd.DataFrame
+        filtered dataframe
+        
+    """
+    feature_df_pruned = bf.setdiff(
+                            feature_df,
+                            bf.expand(tss_df, pad= extend_gene_bp, 
+                                cols=['chrom','start_gene','end_gene']), 
+                            cols2=['chrom','start_gene','end_gene']
+                        )
+    return feature_df_pruned
