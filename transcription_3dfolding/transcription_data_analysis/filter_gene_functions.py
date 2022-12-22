@@ -100,7 +100,7 @@ def load_tss_df(gtf=default_mm10_gtf,
         cut = (tss_df[cutoff_col] > cutoff)
         tss_df = tss_df[cut]
     
-    return tss_df
+    return tss_df.reset_index(drop=True)
 
 
 def get_tss_gene_intervals(
@@ -451,3 +451,39 @@ def mask_gene_body_features( feature_df, tss_df, extend_gene_bp=int(1e3)):
                             cols2=['chrom','start_gene','end_gene']
                         )
     return feature_df_pruned
+
+def split_by_proximal_feature(tss_df, feature_df, window_size=int(5e3), contains_feature=True) :
+    """
+    Filter tss_df for genes containing a feature within 
+    window_size of a tss.
+      
+    Parameters:
+    -----------
+
+    tss_df: pandas dataframe
+        Dataframe of TSS positions        
+    feature_df : pd.DataFrame
+        DataFrame of features in bed format
+    window_size : int
+        masking distance around each TSS
+    contains_feature : True/False
+        indicates whether the desired df should include
+        the feature, when true, or exclude it when false.
+
+    Returns
+    --------
+    feature_df_pruned : pd.DataFrame
+        filtered dataframe
+        
+    """
+    
+    tss_df_masked = mask_tss_proximal_features(tss_df, 
+                                              feature_df,
+                                              window_size=window_size)
+    if contains_feature:
+        filtered_df = bf.setdiff(tss_df, 
+                            bf.expand(tss_df_masked, pad=1))
+    else:
+        filtered_df = tss_df_masked
+        
+    return filtered_df
