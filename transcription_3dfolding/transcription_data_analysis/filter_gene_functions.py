@@ -268,22 +268,6 @@ def label_closest_peak(df, feature_intervals, feature_name):
     
     return df_out
 
-def label_closest_enhancer(df, enhancer_file, enhancer_set):
-    """ Appends a column with the distance from each gene 
-    in df to the closest enhancer.
-    
-    Returns
-    --------
-    df_out : pd.DataFrame
-        DataFrame with [enhancer_set]_distance column
-        
-    """
-    
-    enhancers = get_enhancer_bioframe(enhancer_file)
-    df_out = label_closest_peak(df, enhancers, enhancer_set)
-    
-    return df_out
-
 
 def windows_from_boundaries(boundaries, chromsizes, take_midpoint=False):
     """
@@ -382,6 +366,7 @@ def tad_windows_from_boundaries(insulation_table, take_midpoint=True):
     tad_df = windows_from_boundaries(insulation_boundaries, chrom_sizes, take_midpoint=take_midpoint)
     return tad_df
 
+# todo: move to helper scripts. 
 
 def extract_features_around_TSS(tss_df, feature_df, window_size=int(1e6)):
     """
@@ -404,8 +389,8 @@ def extract_features_around_TSS(tss_df, feature_df, window_size=int(1e6)):
         
     """
     
-    tss_feature_df = bioframe.overlap(
-        bioframe.expand(tss_df, pad= window_size),
+    tss_feature_df = bf.overlap(
+        bf.expand(tss_df, pad= window_size),
         feature_df,
         how = 'left'
     )
@@ -435,9 +420,10 @@ def mask_tss_proximal_features( feature_df, tss_df, window_size=int(5e3)) :
         filtered dataframe
         
     """
-    feature_df_pruned = bioframe.setdiff(feature_df, 
-        bioframe.expand(tss_df, pad= window_size))
+    feature_df_pruned = bf.setdiff(feature_df, 
+        bf.expand(tss_df, pad= window_size))
     return feature_df_pruned
+
 
 def mask_gene_body_features( feature_df, tss_df, extend_gene_bp=int(1e3)):
     """
@@ -458,9 +444,9 @@ def mask_gene_body_features( feature_df, tss_df, extend_gene_bp=int(1e3)):
         filtered dataframe
         
     """
-    feature_df_pruned = bioframe.setdiff(
+    feature_df_pruned = bf.setdiff(
                             feature_df,
-                            bioframe.expand(tss_df, pad= extend_gene_bp, 
+                            bf.expand(tss_df, pad= extend_gene_bp, 
                                 cols=['chrom','start_gene','end_gene']), 
                             cols2=['chrom','start_gene','end_gene']
                         )
