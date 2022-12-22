@@ -288,7 +288,8 @@ def distribution_features_by_region(
 
         counts = []
         for i in bins:
-            counts.append(region_df.groupby(region_group_col).sum([cat+'_counts'])[cat+'_counts'][i:i+bin_size].sum())
+            counts.append(region_df.groupby(region_group_col).sum([cat+'_counts'])[cat+'_counts']
+                          [i:i+bin_size].sum())
 
         groups[cat] = counts
         if percentage:
@@ -314,6 +315,111 @@ def distribution_features_by_region(
     if plot_title != None:
         ax.set_title(plot_title)
 
+        
+def distribution_regions_by_features(
+    region_df,
+    feature_df,
+    region_group_col='num_enhancers',
+    feature_agg_key='DE_status',
+    feature_name='TADs',
+    feature_category_colors={"up": 'tab:red', 
+                             "down": 'tab:blue',
+                             "nonsig": 'tab:grey'},
+    bin_size=1,
+    percentage=True,
+    ax=None,
+    num_genes_cutoff=1,
+    plot_title=None
+):
+    """
+    Plots bar graph of regions containing one or more of some
+    aggregated category. e.g. TADs with number of features on 
+    x-axis, count of TADs split by DE_status on y-axis
+    
+    Parameters:
+    -----------
+    region_df: bioframe df with one interval (chr, start, end) for regions.
+    feature_df: bioframe df with one interval (chr, start, end) for features (e.g. genes)
+    region_group_col: column in region_df with categories of the regions.
+    feature_agg_key: column in feature_df that has category labels for aggregation.
+    feature_category_colors: categories in feature_df[feature_agg_key] and colors for plotting.
+    bin_size: for grouping region_group_col into bins
+    percentage: True/False whether to take percentage of total TADs
+    ax: axis for plotting
+    num_genes_cutoff: selecting a cutoff value for counting in feature_agg_key
+    plot_title: title
+    
+    Returns:
+    --------
+    bar plot
+    """
+    
+    if ax == None:
+        ax = plt.subplot()
+
+    groups = pd.DataFrame()
+    bar_size = 1/(len(feature_category_colors) + 1)
+    x_pos = 0
+    max_count_val = max(region_df[region_group_col])
+
+
+    # collect the number of overlapping features per region for each category
+    for cat, _ in feature_category_colors.items():
+
+        cat_ix = np.where(feature_df[feature_agg_key] == cat)
+
+        if feature_df.iloc[cat_ix].shape[0] < 1:
+            warnings.warn(
+                (
+                "category {} is empty, skipped in plotting".
+                    format(cat)
+                )
+            )
+            continue
+
+        region_df[cat+'_counts'] = bf.count_overlaps(region_df, feature_df.iloc[cat_ix])['count']
+
+    # create x-axis values, where each bin is [a, b)
+    bins = np.arange(0, max_count_val+1, bin_size)
+
+    # aggregate across bins to generate bar plot
+    for cat, color in feature_category_colors.items():
+
+        counts = []
+        for i in bins:
+
+            counts.append(region_df.iloc[
+                            np.where(region_df[cat+'_counts'] >= num_genes_cutoff)
+                            ].groupby(region_group_col).count()[cat+'_counts'][i:i+bin_size].sum())
+
+        groups[cat] = counts
+        
+        if percentage:
+            vals = groups[cat]/groups[cat].sum()
+            lab = 'Percentage of {} containing \n >= {} gene with {}'.format(feature_name,
+                                                                   num_genes_cutoff,
+                                            ' '.join(feature_agg_key.split('_')))
+        else:
+            vals = counts
+            lab = 'Number of {} containing \n >= {} gene with {}'.format(feature_name,
+                                                                   num_genes_cutoff,
+                                            ' '.join(feature_agg_key.split('_')))
+            
+        ax.bar(groups.index + x_pos + .75*bar_size, vals, width=bar_size, color=color, label=cat)
+        x_pos += bar_size
+
+    ax.set(
+    xticks=groups.index,
+    xticklabels=bins,
+    xlabel=' '.join(region_group_col.split('_')),
+    ylabel='Percentage of {} containing \n >= {} gene with {}'.format(feature_name,
+                                                                   num_genes_cutoff,
+                                            ' '.join(feature_agg_key.split('_')))
+    )
+    ax.legend()
+
+    if plot_title != None:
+        ax.set_title(plot_title)
         
 def assign_bin(df, value_col, bin_edges, bin_col_name):
     """
