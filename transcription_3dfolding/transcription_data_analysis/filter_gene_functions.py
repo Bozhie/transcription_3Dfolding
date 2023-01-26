@@ -101,7 +101,7 @@ def load_tss_df(gtf=default_mm10_gtf,
         cut = (tss_df[cutoff_col] > cutoff)
         tss_df = tss_df[cut]
     
-    return tss_df
+    return tss_df.reset_index(drop=True)
 
 
 def get_tss_gene_intervals(
@@ -232,27 +232,22 @@ def get_enhancer_bioframe(enhancer_file):
     Reads enhancer .bed file with no header and returns
     a clean bioferame, with only enhancers one numerical chromosomes.
     """
-    
-    enhancers = bf.read_table(enhancer_file).rename(
-        columns={0: 'chrom',  1: 'start', 2: 'end'}
-    )
-    
-    enhancers = bioframe_clean_autosomes(enhancers)
+    enhancers = get_peak_bioframe(enhancer_file, schema='bed3')
     
     return enhancers
 
-def get_peak_bioframe(peak_file):
+def get_peak_bioframe(peak_file,
+                        schema='bed',
+                        column_names=None):
     """
     Reads a .bed file containing called peaks, 
     with no header but columns: chrom, start, end, peak_name, score
     into a bioframe
     """
     
-    peaks = bf.read_table(peak_file).rename(
-        columns={0: 'chrom',  1: 'start', 
-                 2: 'end', 3: 'name', 4: 'score'
-                }
-    )
+    peaks = bf.read_table(peak_file, schema=schema)
+    if column_names is not None:
+        peaks.rename(column_names)
     
     return bioframe_clean_autosomes(peaks)
 
@@ -457,3 +452,39 @@ def mask_gene_body_features( feature_df, tss_df, extend_gene_bp=int(1e3)):
                             cols2=['chrom','start_gene','end_gene']
                         )
     return feature_df_pruned
+
+def split_by_proximal_feature(tss_df, feature_df, window_size=int(5e3), contains_feature=True) :
+    """
+    Filter tss_df for genes containing a feature within 
+    window_size of a tss.
+      
+    Parameters:
+    -----------
+
+    tss_df: pandas dataframe
+        Dataframe of TSS positions        
+    feature_df : pd.DataFrame
+        DataFrame of features in bed format
+    window_size : int
+        masking distance around each TSS
+    contains_feature : True/False
+        indicates whether the desired df should include
+        the feature, when true, or exclude it when false.
+
+    Returns
+    --------
+    feature_df_pruned : pd.DataFrame
+        filtered dataframe
+        
+    """
+    
+    tss_df_masked = mask_tss_proximal_features(tss_df, 
+                                              feature_df,
+                                              window_size=window_size)
+    if contains_feature:
+        filtered_df = bf.setdiff(tss_df, 
+                            bf.expand(tss_df_masked, pad=1))
+    else:
+        filtered_df = tss_df_masked
+        
+    return filtered_df
