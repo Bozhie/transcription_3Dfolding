@@ -6,7 +6,7 @@ A project to investigate the impact of 3D genome folding on transcriptional regu
 
 ## Credits
 
-This work was done under Geoff Fudenberg's guidance, as research for the Fudenberg Lab at USC.
+This work was done under Geoff Fudenberg's guidance, as research for the Fudenberg Lab at USC, in collaboration with Nora Lab at UCSF.
 
 Continuing updates to this project can be found at [Fudenberg Research Group's Github](https://github.com/Fudenberg-Research-Group/transcription_3Dfolding/)
 
@@ -18,11 +18,23 @@ Most of this work is focused on the role of the cohesin-associated protein NipBL
 
 All of this work can be found through vizualizations in the project file notebooks.
 
-## Project Structure
+## Development
+
+### Environment
+
+For easy installation of scientific packages, we recommend building the environment using [Anaconda](https://docs.anaconda.com/free/anaconda/install/index.html).
+
+With conda installed, build environment by running:
+
+`conda env create --file environment.yml`
+
+
+### Project Structure
+
+Note: this project used [a python project template](https://github.com/rochacbruno/python-project-template/generate), but was not developed intended for distribution. As such, some of the template files are left either empty or unchanged from the original template (denoted below).
 
 Overall Structure of files and locations.
 
-Note: this project used [a python project template](https://github.com/rochacbruno/python-project-template/generate), but was not developed intended for distribution. As such, some of the template files are left either empty or unchanged from the original template (denoted below).
 
 ```text
 ├── docs                     # [empty] Documentation site (add more .md files here)
