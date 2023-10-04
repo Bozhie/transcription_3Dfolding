@@ -1,85 +1,55 @@
 
-# Python Project Template
+# Transcription 3D Folding
 
-A low dependency and really simple to start project template for Python Projects.
+A project to investigate the impact of 3D genome folding on transcriptional regulation. The project includes modules for processing a variety of genomic and transcriptional data-types, plus modules for generating visualizations and analyses.
 
-See also 
-- [Flask-Project-Template](https://github.com/rochacbruno/flask-project-template/) for a full feature Flask project including database, API, admin interface, etc.
-- [FastAPI-Project-Template](https://github.com/rochacbruno/fastapi-project-template/) The base to start an openapi project featuring: SQLModel, Typer, FastAPI, JWT Token Auth, Interactive Shell, Management Commands.
 
-### HOW TO USE THIS TEMPLATE
+## Credits
 
-> **DO NOT FORK** this is meant to be used from **[Use this template](https://github.com/rochacbruno/python-project-template/generate)** feature.
+This work was done under Geoff Fudenberg's guidance, as research for the Fudenberg Lab at USC.
 
-1. Click on **[Use this template](https://github.com/rochacbruno/python-project-template/generate)**
-3. Give a name to your project  
-   (e.g. `my_awesome_project` recommendation is to use all lowercase and underscores separation for repo names.)
-3. Wait until the first run of CI finishes  
-   (Github Actions will process the template and commit to your new repo)
-4. If you want [codecov](https://about.codecov.io/sign-up/) Reports and Automatic Release to [PyPI](https://pypi.org)  
-  On the new repository `settings->secrets` add your `PYPI_API_TOKEN` and `CODECOV_TOKEN` (get the tokens on respective websites)
-4. Read the file [CONTRIBUTING.md](CONTRIBUTING.md)
-5. Then clone your new project and happy coding!
+Continuing updates to this project can be found at [Fudenberg Research Group's Github](https://github.com/Fudenberg-Research-Group/transcription_3Dfolding/)
 
-> **NOTE**: **WAIT** until first CI run on github actions before cloning your new project.
+Unpublished RNA-sequencing data was provided by collaborators at UCSF's Nora Lab. 
 
-### What is included on this template?
+## Methods
 
-- 🖼️ Templates for starting multiple application types:
-  * **Basic low dependency** Python program (default) [use this template](https://github.com/rochacbruno/python-project-template/generate)
-  * **Flask** with database, admin interface, restapi and authentication [use this template](https://github.com/rochacbruno/flask-project-template/generate).
-  **or Run `make init` after cloning to generate a new project based on a template.**
-- 📦 A basic [setup.py](setup.py) file to provide installation, packaging and distribution for your project.  
-  Template uses setuptools because it's the de-facto standard for Python packages, you can run `make switch-to-poetry` later if you want.
-- 🤖 A [Makefile](Makefile) with the most useful commands to install, test, lint, format and release your project.
-- 📃 Documentation structure using [mkdocs](http://www.mkdocs.org)
-- 💬 Auto generation of change log using **gitchangelog** to keep a HISTORY.md file automatically based on your commit history on every release.
-- 🐋 A simple [Containerfile](Containerfile) to build a container image for your project.  
-  `Containerfile` is a more open standard for building container images than Dockerfile, you can use buildah or docker with this file.
-- 🧪 Testing structure using [pytest](https://docs.pytest.org/en/latest/)
-- ✅ Code linting using [flake8](https://flake8.pycqa.org/en/latest/)
-- 📊 Code coverage reports using [codecov](https://about.codecov.io/sign-up/)
-- 🛳️ Automatic release to [PyPI](https://pypi.org) using [twine](https://twine.readthedocs.io/en/latest/) and github actions.
-- 🎯 Entry points to execute your program using `python -m <transcription_3dfolding>` or `$ transcription_3dfolding` with basic CLI argument parsing.
-- 🔄 Continuous integration using [Github Actions](.github/workflows/) with jobs to lint, test and release your project on Linux, Mac and Windows environments.
+Most of this work is focused on the role of the cohesin-associated protein NipBL. We use an RNA-sequencing dataset from a degraded NipBL cell line to identify up-regulated and down-regulated genes, using `DESeq2`. From there, we look for patterns that separate these differentially-expressed genes in relation to other genomic features -- including overall genomic folding structure and TAD domains (from Hi-C data) and in conjunction with other genome-associating proteins.
 
-> Curious about architectural decisions on this template? read [ABOUT_THIS_TEMPLATE.md](ABOUT_THIS_TEMPLATE.md)  
-> If you want to contribute to this template please open an [issue](https://github.com/rochacbruno/python-project-template/issues) or fork and send a PULL REQUEST.
+All of this work can be found through vizualizations in the project file notebooks.
 
-[❤️ Sponsor this project](https://github.com/sponsors/rochacbruno/)
+## Project Structure
 
-<!--  DELETE THE LINES ABOVE THIS AND WRITE YOUR PROJECT README BELOW -->
+Overall Structure of files and locations.
 
----
-# transcription_3dfolding
+Note: this project used [a python project template](https://github.com/rochacbruno/python-project-template/generate), but was not developed intended for distribution. As such, some of the template files are left either empty or unchanged from the original template (denoted below).
 
-[![codecov](https://codecov.io/gh/Fudenberg-Research-Group/transcription_3Dfolding/branch/main/graph/badge.svg?token=transcription_3Dfolding_token_here)](https://codecov.io/gh/Fudenberg-Research-Group/transcription_3Dfolding)
-[![CI](https://github.com/Fudenberg-Research-Group/transcription_3Dfolding/actions/workflows/main.yml/badge.svg)](https://github.com/Fudenberg-Research-Group/transcription_3Dfolding/actions/workflows/main.yml)
-
-Awesome transcription_3dfolding created by Fudenberg-Research-Group
-
-## Install it from PyPI
-
-```bash
-pip install transcription_3dfolding
+```text
+├── docs                     # [empty] Documentation site (add more .md files here)
+│   └── index.md             # [empty] The index page for the docs site
+├── .github                  # Github metadata for repository
+│   ├── release_message.sh   # A script to generate a release message
+│   └── workflows            # The CI pipeline for Github Actions
+├── .gitignore               # A list of files to ignore when pushing to Github
+├── HISTORY.md               # Auto generated list of changes to the project
+├── LICENSE                  # [empty] The license for the project
+├── Makefile                 # [empty] A collection of utilities to manage the project
+├── mkdocs.yml               # Configuration for documentation site
+├── transcription_3dfolding             # The main python package for the project
+│   ├── feature_generation   # Notebooks for vizualizing genomic features generated from Hi-C boundary peak-calling
+│   ├── trancription_data_analysis
+│   │   ├── chip_seq_agg     # Notebooks to vizualize for Chip-Seq signals around disregulated genes
+│   │   ├── chip_seq_peak    # Notebooks to vizualize Chip-Seq peaks in relation to disregulated genes
+│   │   ├── feature_histograms # notebooks with histograms for exploratory data analysis of features
+│   │   └── utils            # Functions for processing data or generating plots
+│   ├── base.py              # [empty] The base module for the project
+│   ├── __init__.py          # [empty] This tells Python that this is a package
+│   ├── __main__.py          # [empty] The entry point for the project
+│   └── VERSION              # [empty] The version for the project is kept in a static file
+├── README.md                # The main readme for the project
+├── environment.yml          # The full file for generating a conda environment
+└── setup.py                 # [empty] The setup.py file for installing and packaging the project
 ```
 
-## Usage
 
-```py
-from transcription_3dfolding import BaseClass
-from transcription_3dfolding import base_function
 
-BaseClass().base_method()
-base_function()
-```
-
-```bash
-$ python -m transcription_3dfolding
-#or
-$ transcription_3dfolding
-```
-
-## Development
-
-Read the [CONTRIBUTING.md](CONTRIBUTING.md) file.
